@@ -1,0 +1,141 @@
+name: TakeOff Android Permanent Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: takeoff-android-public-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secret-free source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE --exclude-dir=.git --exclude='*.md' --exclude='*Test.kt' '(TAKEOFF_COMPANION_KEY[[:space:]]*=|TAKEOFF_COMPANION_BOOTSTRAP_CODE[[:space:]]*=|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})' .; then
+            echo 'Potential secret found in public builder source' >&2
+            exit 1
+          fi
+          if grep -Rni 'SilentPairActivity' app/src/main; then
+            echo 'Deprecated SilentPairActivity must not return' >&2
+            exit 1
+          fi
+          if grep -Rni 'android.permission.RECORD_AUDIO' app/src/main; then
+            echo 'RECORD_AUDIO is forbidden in this release contract' >&2
+            exit 1
+          fi
+
+      - name: Discover Android version from source
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          text = pathlib.Path('app/build.gradle.kts').read_text(encoding='utf-8')
+          name = re.search(r'versionName\s*=\s*"([^"]+)"', text)
+          code = re.search(r'versionCode\s*=\s*(\d+)', text)
+          if not name or not code:
+              raise SystemExit('Could not discover versionName/versionCode')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write(f'TAKEOFF_VERSION_NAME={name.group(1)}\n')
+              f.write(f'TAKEOFF_VERSION_CODE={code.group(1)}\n')
+          print(f"TakeOff Insights {name.group(1)} ({code.group(1)})")
+          PY
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install required Android SDK
+        shell: bash
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Android unit tests and APK build
+        shell: bash
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Validate APK installability and release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          unzip -t "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee /tmp/apk-badging.txt
+          EXPECTED="package: name='ai.takeoff.insightscompanion' versionCode='$TAKEOFF_VERSION_CODE' versionName='$TAKEOFF_VERSION_NAME'"
+          grep -F "$EXPECTED" /tmp/apk-badging.txt
+          "$SIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/apk-manifest.txt
+          grep -q 'ShareEntryActivity' /tmp/apk-manifest.txt
+          grep -q 'ViralShareActivity' /tmp/apk-manifest.txt
+          grep -q 'android.intent.action.SEND' /tmp/apk-manifest.txt
+          ! grep -q 'SilentPairActivity' /tmp/apk-manifest.txt
+          ! grep -q 'ViralCaptureService' /tmp/apk-manifest.txt
+          ! grep -q 'android.permission.RECORD_AUDIO' /tmp/apk-manifest.txt
+
+      - name: Write immutable build report
+        if: always() && !cancelled()
+        shell: bash
+        run: |
+          mkdir -p reports
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          apk = pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')
+          payload = {
+              'github_run_id': os.getenv('GITHUB_RUN_ID'),
+              'github_sha': os.getenv('GITHUB_SHA'),
+              'version_name': os.getenv('TAKEOFF_VERSION_NAME'),
+              'version_code': int(os.getenv('TAKEOFF_VERSION_CODE') or 0),
+              'apk_exists': apk.is_file() and apk.stat().st_size > 0,
+              'apk_size': apk.stat().st_size if apk.is_file() else 0,
+              'apk_sha256': hashlib.sha256(apk.read_bytes()).hexdigest() if apk.is_file() else None,
+              'source_policy': 'public-secret-free-android-only',
+          }
+          pathlib.Path('reports/android-build-status.json').write_text(json.dumps(payload, indent=2), encoding='utf-8')
+          print(json.dumps(payload, indent=2))
+          PY
+          cp /tmp/apk-badging.txt reports/apk-badging.txt 2>/dev/null || true
+          cp /tmp/apk-manifest.txt reports/apk-manifest.txt 2>/dev/null || true
+
+      - name: Upload diagnostics
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Android-Diagnostics-${{ github.run_id }}
+          path: reports/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload validated APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-v${{ env.TAKEOFF_VERSION_NAME }}-${{ github.run_id }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
