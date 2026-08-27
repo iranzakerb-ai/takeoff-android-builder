@@ -12,7 +12,7 @@ on:
       - '.github/workflows/android-build.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: takeoff-android-public-${{ github.ref }}
@@ -131,7 +131,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload validated APK
+      - name: Upload validated APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -139,3 +139,23 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish permanent validated release
+        if: success() && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          ASSET='TakeOff-Insights.apk'
+          TAG="v${TAKEOFF_VERSION_NAME}"
+          cp "$APK" "$ASSET"
+          SHA256=$(sha256sum "$ASSET" | awk '{print $1}')
+          NOTES=$(printf 'Validated TakeOff Insights %s (code %s)\n\nPackage: ai.takeoff.insightscompanion\nSHA-256: %s\n\nThis APK passed unit tests, ZIP integrity, package/version, signature, manifest contract, and secret-free source gates.' "$TAKEOFF_VERSION_NAME" "$TAKEOFF_VERSION_CODE" "$SHA256")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+            gh release edit "$TAG" --title "TakeOff Insights $TAKEOFF_VERSION_NAME" --notes "$NOTES" --latest
+          else
+            gh release create "$TAG" "$ASSET" --target "$GITHUB_SHA" --title "TakeOff Insights $TAKEOFF_VERSION_NAME" --notes "$NOTES" --latest
+          fi
