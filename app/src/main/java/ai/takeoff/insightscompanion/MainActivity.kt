@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
     private fun nicheFor(handle:String)=getSharedPreferences("takeoff_companion_plain",Context.MODE_PRIVATE).getString("niche_$handle","عمومی").orEmpty().ifBlank{"عمومی"}
     private fun rate(reel:LocalInsightStore.Reel,key:String):Double{val views=reel.metrics["views"]?:return 0.0;if(views<=0.0)return 0.0;return(reel.metrics[key]?:0.0)/views}
     private fun pct(value:Double)=DecimalFormat("0.00%").format(value)
-    private fun metricsLine(metrics:Map<String,Double>):String{fun value(name:String)=metrics[name]?.let{formatNumber(it)}?:"—";return"بازدید ${value("views")} • اشتراک ${value("shares")} • ذخیره ${value("saves")}"}
+    private fun metricsLine(metrics:Map<String,Double>):String{fun value(name:String)=metrics[name]?.let{formatNumber(it)}?:"—"; return "بازدید ${value("views")} • اشتراک ${value("shares")} • ذخیره ${value("saves")}"}
     private fun formatNumber(value:Double)=when{value>=1_000_000->DecimalFormat("0.0M").format(value/1_000_000);value>=1_000->DecimalFormat("0.0K").format(value/1_000);else->DecimalFormat("0").format(value)}
     private fun stateFa(value:String)=when(value){"recorded"->"ثبت قطعی";"queued"->"در صف امن";"review"->"منتظر بررسی";"armed"->"آماده ثبت";else->value}
     private fun fidelityFa(value:String)=when(value){"complete"->"کامل طبق سناریو";"minor_changes"->"تغییر جزئی";"major_changes"->"تغییر زیاد";else->"نامشخص"}
