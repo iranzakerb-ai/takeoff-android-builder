@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Secret-free source gate
+      - name: Secret-free and keyless-share source gate
         shell: bash
         run: |
           set -euo pipefail
@@ -41,6 +41,15 @@ jobs:
             echo 'RECORD_AUDIO is forbidden in this release contract' >&2
             exit 1
           fi
+          test ! -e app/src/main/java/ai/takeoff/insightscompanion/LegacyCompanionRepair.kt
+          if grep -RniE 'LegacyCompanionRepair|کد اتصال امن|/v2/viral-evidence/pair' app/src/main/java; then
+            echo 'Manual pairing/recovery UI is forbidden in the keyless Share release' >&2
+            exit 1
+          fi
+          test -s app/src/main/java/ai/takeoff/insightscompanion/ViralJobClient.kt
+          grep -q '/v2/viral-jobs' app/src/main/java/ai/takeoff/insightscompanion/ViralJobClient.kt
+          grep -q 'media_progress_percent' app/src/main/java/ai/takeoff/insightscompanion/ViralShareActivity.kt
+          grep -q 'دریافت واقعی رسانه' app/src/main/java/ai/takeoff/insightscompanion/ViralShareActivity.kt
 
       - name: Discover Android version from source
         shell: bash
@@ -114,7 +123,7 @@ jobs:
               'apk_exists': apk.is_file() and apk.stat().st_size > 0,
               'apk_size': apk.stat().st_size if apk.is_file() else 0,
               'apk_sha256': hashlib.sha256(apk.read_bytes()).hexdigest() if apk.is_file() else None,
-              'source_policy': 'public-secret-free-android-only',
+              'source_policy': 'public-secret-free-keyless-share-android-only',
           }
           pathlib.Path('reports/android-build-status.json').write_text(json.dumps(payload, indent=2), encoding='utf-8')
           print(json.dumps(payload, indent=2))
@@ -152,7 +161,7 @@ jobs:
           TAG="v${TAKEOFF_VERSION_NAME}"
           cp "$APK" "$ASSET"
           SHA256=$(sha256sum "$ASSET" | awk '{print $1}')
-          NOTES=$(printf 'Validated TakeOff Insights %s (code %s)\n\nPackage: ai.takeoff.insightscompanion\nSHA-256: %s\n\nThis APK passed unit tests, ZIP integrity, package/version, signature, manifest contract, and secret-free source gates.' "$TAKEOFF_VERSION_NAME" "$TAKEOFF_VERSION_CODE" "$SHA256")
+          NOTES=$(printf 'Validated TakeOff Insights %s (code %s)\n\nPackage: ai.takeoff.insightscompanion\nSHA-256: %s\n\nThis APK passed unit tests, ZIP integrity, package/version, signature, manifest contract, keyless Share anti-regression, and secret-free source gates.' "$TAKEOFF_VERSION_NAME" "$TAKEOFF_VERSION_CODE" "$SHA256")
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ASSET" --clobber
             gh release edit "$TAG" --title "TakeOff Insights $TAKEOFF_VERSION_NAME" --notes "$NOTES" --latest
