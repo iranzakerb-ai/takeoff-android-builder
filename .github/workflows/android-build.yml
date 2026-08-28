@@ -55,7 +55,7 @@ jobs:
           python - <<'PY'
           import json, time, urllib.request, urllib.error
           BASE='https://takeoff-seven-puce.vercel.app'
-          REEL='https://www.instagram.com/reel/DcY_gBpNoSj/'
+          REEL='https://www.instagram.com/reel/DcasYHfqh93/'
           stages={'server_prepare','media_resolve','media_download','ai_upload','audio_visual_analysis','behavioral_analysis','learning_persist','completed','failed'}
           def request(path, method='GET', payload=None, timeout=90):
               body=None if payload is None else json.dumps(payload,ensure_ascii=False).encode('utf-8')
