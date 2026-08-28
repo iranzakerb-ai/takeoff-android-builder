@@ -1,0 +1,42 @@
+name: TakeOff Legacy Backend Smoke
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/backend-legacy-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Probe production health and legacy viral analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://takeoff-virality-engine.onrender.com'
+          echo '=== health ==='
+          curl -fsS --retry 4 --retry-all-errors --connect-timeout 15 --max-time 60 "$BASE/health"
+          echo
+          echo '=== legacy viral endpoint ==='
+          START=$(date +%s)
+          CODE=$(curl -sS -o /tmp/result.json -w '%{http_code}' --retry 1 --retry-all-errors --connect-timeout 15 --max-time 330 \
+            -H 'Accept: application/json' -H 'Content-Type: application/json' \
+            -d '{"url":"https://www.instagram.com/reel/DcY_gBpNoSj/","niche":"عمومی","source":"github_legacy_smoke"}' \
+            "$BASE/v2/viral-evidence" || true)
+          END=$(date +%s)
+          echo "http=$CODE elapsed_seconds=$((END-START))"
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('/tmp/result.json')
+          if p.exists():
+              raw=p.read_text(errors='replace')
+              print(raw[:5000])
+              try:
+                  j=json.loads(raw)
+                  safe={k:j.get(k) for k in ('status','evidence_id','analysis_mode','deduplicated','error_code') if k in j}
+                  print('SAFE_SUMMARY='+json.dumps(safe,ensure_ascii=False))
+              except Exception as e:
+                  print('json_error',type(e).__name__)
+          PY
+          test "$CODE" -ge 200 -a "$CODE" -lt 300
