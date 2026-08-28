@@ -180,21 +180,27 @@ class ViralShareActivity : Activity() {
                 runOnUiThread { showError("پاسخ ساخت Job ناقص بود", "invalid_job_contract") }
                 return@Thread
             }
-            runOnUiThread { setStage("server_prepare", 100, true); status.text = "Job ساخته شد؛ دریافت پیشرفت واقعی…"; overallBar.progress = 8; overallText.text = "پیشرفت کل: ۸٪" }
+            runOnUiThread {
+                status.text = "Job ساخته شد؛ دریافت پیشرفت واقعی…"
+                status.setTextColor(Color.WHITE)
+            }
 
             var transientFailures = 0
             var polls = 0
             while (generation == mine && polls < 1200) {
                 polls++
-                val poll = runCatching { ViralJobClient.poll(PayloadClient.PRODUCTION_ENDPOINT, jobId, token) }.getOrElse {
+                val pollAttempt = runCatching { ViralJobClient.poll(PayloadClient.PRODUCTION_ENDPOINT, jobId, token) }
+                if (pollAttempt.isFailure) {
                     transientFailures++
+                    val errorName = pollAttempt.exceptionOrNull()?.javaClass?.simpleName.orEmpty().ifBlank { "network_error" }
                     if (transientFailures >= 4) {
-                        runOnUiThread { showError("ارتباط با Job سرور قطع شد", it.javaClass.simpleName) }
+                        runOnUiThread { showError("ارتباط با Job سرور قطع شد", errorName) }
                         return@Thread
                     }
                     Thread.sleep(1200L)
                     continue
                 }
+                val poll = pollAttempt.getOrThrow()
                 if (poll.first !in 200..299) {
                     transientFailures++
                     if (transientFailures >= 4 || poll.first in 400..499) {
