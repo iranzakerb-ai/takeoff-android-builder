@@ -7,7 +7,7 @@ import java.net.URL
 import java.net.URLEncoder
 
 object PayloadClient {
-    const val PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.onrender.com"
+    const val PRODUCTION_ENDPOINT = "https://takeoff-seven-puce.vercel.app"
     internal const val VIRAL_ANALYSIS_READ_TIMEOUT_MS = 300_000
 
     internal fun validateEndpoint(endpoint: String) {
