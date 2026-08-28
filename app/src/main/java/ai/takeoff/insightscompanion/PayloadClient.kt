@@ -2,7 +2,6 @@ package ai.takeoff.insightscompanion
 
 import org.json.JSONObject
 import java.io.File
-import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -10,7 +9,6 @@ import java.net.URLEncoder
 object PayloadClient {
     const val PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.onrender.com"
     internal const val VIRAL_ANALYSIS_READ_TIMEOUT_MS = 300_000
-    internal const val PAIRING_ATTEMPTS = 3
 
     internal fun validateEndpoint(endpoint: String) {
         val url = runCatching { URL(endpoint.trim()) }.getOrElse { throw IllegalArgumentException("Invalid TakeOff endpoint") }
@@ -53,26 +51,6 @@ object PayloadClient {
                 receiptId.isNotBlank() && disposition == "recorded" && idMatches
         }.getOrDefault(false)
     }
-
-    fun pairCompanion(endpoint: String, code: String, deviceId: String, deviceName: String): Pair<Int, String> {
-        val payload = JSONObject()
-            .put("code", code.trim())
-            .put("device_id", deviceId.trim())
-            .put("device_name", deviceName.trim())
-        val url = viralEndpoint(endpoint) + "/v2/viral-evidence/pair"
-        var lastError: IOException? = null
-        repeat(PAIRING_ATTEMPTS) { attempt ->
-            try {
-                return request(url, "", "POST", payload.toString(), readTimeoutMs = 30_000, connectTimeoutMs = 20_000)
-            } catch (exc: IOException) {
-                lastError = exc
-                if (attempt < PAIRING_ATTEMPTS - 1) Thread.sleep(if (attempt == 0) 900L else 1_800L)
-            }
-        }
-        throw lastError ?: IOException("pairing failed without response")
-    }
-
-    fun pairCompanion(endpoint: String, code: String): Pair<Int, String> = pairCompanion(endpoint, code, "", "")
 
     fun post(endpoint: String, companionKey: String, payload: JSONObject): Pair<Int, String> =
         request(endpoint.trimEnd('/') + "/v2/owner-outcomes/device", companionKey, "POST", payload.toString())
