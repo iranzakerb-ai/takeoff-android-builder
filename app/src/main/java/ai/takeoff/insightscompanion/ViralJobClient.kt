@@ -4,9 +4,12 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.HttpsURLConnection
 
 object ViralJobClient {
+    private val rotatingTokens = ConcurrentHashMap<String, String>()
+
     private fun connection(url: String, method: String, readTimeoutMs: Int = 75_000): HttpsURLConnection {
         val conn = URL(url).openConnection() as? HttpsURLConnection
             ?: throw IllegalArgumentException("HTTPS endpoint required")
@@ -40,14 +43,37 @@ object ViralJobClient {
             .put("url", reelUrl)
             .put("niche", niche)
             .put("source", "android_share"))
-        return try { read(conn) } finally { conn.disconnect() }
+        val response = try { read(conn) } finally { conn.disconnect() }
+        if (response.first in 200..299) {
+            runCatching {
+                val root = JSONObject(response.second)
+                val jobId = root.optString("job_id")
+                val token = root.optString("poll_token")
+                if (jobId.isNotBlank() && token.length >= 20) rotatingTokens[jobId] = token
+            }
+        }
+        return response
     }
 
     fun poll(endpoint: String, jobId: String, token: String): Pair<Int, String> {
         val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         val encodedId = URLEncoder.encode(jobId, "UTF-8")
+        val activeToken = rotatingTokens[jobId] ?: token
         val conn = connection("$base/v2/viral-jobs/$encodedId/poll", "POST", 75_000)
-        writeJson(conn, JSONObject().put("token", token))
-        return try { read(conn) } finally { conn.disconnect() }
+        writeJson(conn, JSONObject().put("token", activeToken))
+        val response = try { read(conn) } finally { conn.disconnect() }
+        if (response.first in 200..299) {
+            runCatching {
+                val root = JSONObject(response.second)
+                val status = root.optString("status")
+                val nextToken = root.optString("poll_token")
+                if (status == "completed" || status == "failed" || status == "partial") {
+                    rotatingTokens.remove(jobId)
+                } else if (nextToken.length >= 20) {
+                    rotatingTokens[jobId] = nextToken
+                }
+            }
+        }
+        return response
     }
 }
