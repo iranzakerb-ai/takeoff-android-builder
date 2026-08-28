@@ -200,6 +200,11 @@ class ViralShareActivity : Activity() {
         runAnalysis(endpoint, niche)
     }
 
+    /**
+     * Public Instagram Reel analysis is keyless by default. If the already-deployed
+     * backend is an older build that still returns HTTP 401, the isolated legacy
+     * compatibility bridge repairs/re-pairs once and retries this same Reel.
+     */
     private fun runAnalysis(endpoint: String, niche: String) {
         retryButton.visibility = View.GONE
         setProgress(1, "سرور در حال دریافت مستقیم ویدیو است…")
