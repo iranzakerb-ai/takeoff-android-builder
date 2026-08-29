@@ -97,6 +97,16 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
+          cp "$APK" TakeOff-Insights-v0.14.2.apk
+
+      - name: Upload validated APK artifact for ChatGPT handoff
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-v0.14.2
+          path: TakeOff-Insights-v0.14.2.apk
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Publish validated test APK release
         if: success() && github.ref == 'refs/heads/main'
