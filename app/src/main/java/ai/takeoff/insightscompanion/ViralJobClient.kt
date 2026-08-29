@@ -10,7 +10,7 @@ import javax.net.ssl.HttpsURLConnection
 object ViralJobClient {
     private val rotatingTokens = ConcurrentHashMap<String, String>()
 
-    private fun connection(url: String, method: String, readTimeoutMs: Int = 75_000): HttpsURLConnection {
+    private fun connection(url: String, method: String, readTimeoutMs: Int = 295_000): HttpsURLConnection {
         val conn = URL(url).openConnection() as? HttpsURLConnection
             ?: throw IllegalArgumentException("HTTPS endpoint required")
         conn.requestMethod = method
@@ -59,7 +59,10 @@ object ViralJobClient {
         val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         val encodedId = URLEncoder.encode(jobId, "UTF-8")
         val activeToken = rotatingTokens[jobId] ?: token
-        val conn = connection("$base/v2/viral-jobs/$encodedId/poll", "POST", 75_000)
+        // A real multimodal Gemini pass can legitimately take several minutes.
+        // Keep the client timeout just below Vercel's 300-second function ceiling
+        // so slow successful analysis is not misreported as a broken connection.
+        val conn = connection("$base/v2/viral-jobs/$encodedId/poll", "POST", 295_000)
         writeJson(conn, JSONObject().put("token", activeToken))
         val response = try { read(conn) } finally { conn.disconnect() }
         if (response.first in 200..299) {
