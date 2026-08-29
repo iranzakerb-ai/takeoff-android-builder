@@ -57,9 +57,9 @@ jobs:
           BASE='https://takeoff-seven-puce.vercel.app'
           REEL='https://www.instagram.com/reel/DcasYHfqh93/'
           stages={'server_prepare','media_resolve','media_download','ai_upload','audio_visual_analysis','behavioral_analysis','learning_persist','completed','failed'}
-          def request(path, method='GET', payload=None, timeout=90):
+          def request(path, method='GET', payload=None, timeout=240):
               body=None if payload is None else json.dumps(payload,ensure_ascii=False).encode('utf-8')
-              req=urllib.request.Request(BASE+path,data=body,method=method,headers={'Accept':'application/json','Content-Type':'application/json; charset=utf-8','User-Agent':'TakeOff-CI/0.14'})
+              req=urllib.request.Request(BASE+path,data=body,method=method,headers={'Accept':'application/json','Content-Type':'application/json; charset=utf-8','User-Agent':'TakeOff-CI/0.14.1'})
               try:
                   with urllib.request.urlopen(req,timeout=timeout) as r:
                       return r.status,json.loads(r.read().decode('utf-8'))
@@ -69,16 +69,19 @@ jobs:
           code,health=request('/health',timeout=30)
           assert code==200 and health.get('ok') is True,health
           assert health.get('stateless') is True and health.get('job_api') is True,health
-          assert health.get('version')=='0.14.0',health
+          assert health.get('gemini') is True,health
+          assert health.get('version')=='0.14.1',health
+          assert health.get('learning_store')=='supabase_verified_anon_rls',health
           print('health=',health)
           code,created=request('/v2/viral-jobs','POST',{'url':REEL,'niche':'عمومی','source':'github_full_e2e'},45)
           assert 200<=code<300,created
           job_id=created.get('job_id',''); token=created.get('poll_token','')
           assert job_id and len(token)>=20,created
+          assert created.get('stage')=='server_prepare',created
           print('created job',job_id)
-          seen=[]; last_overall=-1; completed=False
+          seen=['server_prepare']; last_overall=int(created.get('overall_progress_percent') or 0); completed=False
           for n in range(1,121):
-              code,row=request(f'/v2/viral-jobs/{job_id}/poll','POST',{'token':token},90)
+              code,row=request(f'/v2/viral-jobs/{job_id}/poll','POST',{'token':token},240)
               assert 200<=code<300,row
               status=row.get('status'); stage=row.get('stage'); sp=row.get('stage_progress_percent'); op=row.get('overall_progress_percent')
               assert stage in stages,(stage,row)
@@ -87,12 +90,13 @@ jobs:
               assert op>=last_overall,(last_overall,op,row)
               last_overall=op
               if stage not in seen: seen.append(stage)
-              print(f'poll={n} status={status} stage={stage} stage_pct={sp} overall={op} bytes={row.get("media_downloaded_bytes",0)}/{row.get("media_total_bytes",0)}')
+              print(f'poll={n} status={status} stage={stage} stage_pct={sp} overall={op} bytes={row.get("media_downloaded_bytes",0)}/{row.get("media_total_bytes",0)} retryable={row.get("retryable",False)}')
               if status=='failed': raise RuntimeError('live backend failed: '+str(row.get('error_code')))
               if status=='completed':
                   assert stage=='completed' and op==100 and sp==100,row
                   result=row.get('result') or {}; report=result.get('report') or {}
                   assert result.get('analysis_mode')=='vercel_stateless_gemini_apify_real_progress',result
+                  assert result.get('learning_persisted') is True,result
                   assert isinstance(result.get('audio_visual_analysis'),dict) and result.get('audio_visual_analysis'),result
                   assert isinstance(result.get('behavioral_analysis'),dict) and result.get('behavioral_analysis'),result
                   assert isinstance(report,dict) and report,report
@@ -102,7 +106,7 @@ jobs:
               assert isinstance(next_token,str) and len(next_token)>=20,row
               assert next_token!=token,'poll token did not rotate'
               token=next_token
-              time.sleep(0.8)
+              time.sleep(max(0.9,float(row.get('retry_after_seconds') or 0)))
           assert completed,'full live analysis did not complete'
           required={'server_prepare','media_resolve','media_download','ai_upload','audio_visual_analysis','behavioral_analysis','learning_persist','completed'}
           assert required.issubset(set(seen)),(required-set(seen),seen)
@@ -150,7 +154,7 @@ jobs:
           mkdir -p reports
           python - <<'PY'
           import hashlib,json,os,pathlib
-          apk=pathlib.Path('app/build/outputs/apk/debug/app-debug.apk'); payload={'github_run_id':os.getenv('GITHUB_RUN_ID'),'github_sha':os.getenv('GITHUB_SHA'),'version_name':os.getenv('TAKEOFF_VERSION_NAME'),'version_code':int(os.getenv('TAKEOFF_VERSION_CODE') or 0),'apk_exists':apk.is_file() and apk.stat().st_size>0,'apk_size':apk.stat().st_size if apk.is_file() else 0,'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest() if apk.is_file() else None,'source_policy':'vercel-free-stateless-job-api-real-progress-full-e2e-before-build'}
+          apk=pathlib.Path('app/build/outputs/apk/debug/app-debug.apk'); payload={'github_run_id':os.getenv('GITHUB_RUN_ID'),'github_sha':os.getenv('GITHUB_SHA'),'version_name':os.getenv('TAKEOFF_VERSION_NAME'),'version_code':int(os.getenv('TAKEOFF_VERSION_CODE') or 0),'apk_exists':apk.is_file() and apk.stat().st_size>0,'apk_size':apk.stat().st_size if apk.is_file() else 0,'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest() if apk.is_file() else None,'source_policy':'vercel-0.14.1-stateless-real-progress-supabase-learning-full-e2e-before-build'}
           pathlib.Path('reports/android-build-status.json').write_text(json.dumps(payload,indent=2),encoding='utf-8'); print(json.dumps(payload,indent=2))
           PY
           cp /tmp/apk-badging.txt reports/apk-badging.txt 2>/dev/null || true; cp /tmp/apk-manifest.txt reports/apk-manifest.txt 2>/dev/null || true
@@ -170,5 +174,5 @@ jobs:
         run: |
           set -euo pipefail
           APK='app/build/outputs/apk/debug/app-debug.apk'; ASSET='TakeOff-Insights.apk'; TAG="v${TAKEOFF_VERSION_NAME}"; cp "$APK" "$ASSET"; SHA256=$(sha256sum "$ASSET"|awk '{print $1}')
-          NOTES=$(printf 'Validated TakeOff Insights %s (code %s)\n\nPackage: ai.takeoff.insightscompanion\nSHA-256: %s\n\nFree Vercel stateless Job API. Full real Reel analysis, rotating poll tokens, real server progress, Supabase learning persistence, Android unit tests, signature and manifest gates all passed.' "$TAKEOFF_VERSION_NAME" "$TAKEOFF_VERSION_CODE" "$SHA256")
+          NOTES=$(printf 'Validated TakeOff Insights %s (code %s)\n\nPackage: ai.takeoff.insightscompanion\nSHA-256: %s\n\nVercel 0.14.1 Job API: real Reel media resolution/download, Gemini multimodal analysis, real stage progress, verified Supabase learning persistence, Android unit tests, signature and manifest gates passed.' "$TAKEOFF_VERSION_NAME" "$TAKEOFF_VERSION_CODE" "$SHA256")
           if gh release view "$TAG" >/dev/null 2>&1; then gh release upload "$TAG" "$ASSET" --clobber; gh release edit "$TAG" --title "TakeOff Insights $TAKEOFF_VERSION_NAME" --notes "$NOTES" --latest; else gh release create "$TAG" "$ASSET" --target "$GITHUB_SHA" --title "TakeOff Insights $TAKEOFF_VERSION_NAME" --notes "$NOTES" --latest; fi
