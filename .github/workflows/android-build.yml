@@ -1,5 +1,6 @@
 name: TakeOff Android Permanent Build
 
+# final v0.14.1 code29 validation trigger 2026-08-29
 on:
   workflow_dispatch:
   push:
