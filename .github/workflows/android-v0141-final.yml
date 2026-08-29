@@ -1,0 +1,128 @@
+name: TakeOff v0.14.1 Final Validation
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/android-v0141-final.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Source and version gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC='app/src/main/java/ai/takeoff/insightscompanion'
+          grep -q 'versionCode = 29' app/build.gradle.kts
+          grep -q 'versionName = "0.14.1"' app/build.gradle.kts
+          grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
+          ! grep -q 'takeoff-virality-engine.onrender.com' "$SRC/PayloadClient.kt"
+          grep -q '/v2/viral-jobs' "$SRC/ViralJobClient.kt"
+          grep -q '/poll' "$SRC/ViralJobClient.kt"
+          grep -q 'ViralJobClient.start' "$SRC/ViralShareActivity.kt"
+          grep -q 'ViralJobClient.poll' "$SRC/ViralShareActivity.kt"
+          ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
+          test ! -e "$SRC/LegacyCompanionRepair.kt"
+          test ! -e "$SRC/ViralStreamClient.kt"
+
+      - name: Live production fresh Reel E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,time,urllib.request,urllib.error
+          BASE='https://takeoff-seven-puce.vercel.app'
+          REEL='https://www.instagram.com/reel/DbAqmKPIaY5/'
+          def rq(path,method='GET',payload=None,timeout=240):
+              body=None if payload is None else json.dumps(payload,ensure_ascii=False).encode()
+              req=urllib.request.Request(BASE+path,data=body,method=method,headers={'Accept':'application/json','Content-Type':'application/json','User-Agent':'TakeOff-CI/0.14.1-final'})
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as r: return r.status,json.loads(r.read().decode())
+              except urllib.error.HTTPError as e: raise RuntimeError(f'HTTP {e.code}: '+e.read().decode('utf-8','replace')[:300])
+          code,h=rq('/health',timeout=30)
+          assert code==200 and h.get('ok') is True and h.get('version')=='0.14.1' and h.get('gemini') is True and h.get('job_api') is True and h.get('stateless') is True and h.get('learning_store')=='supabase_verified_anon_rls',h
+          code,s=rq('/v2/viral-jobs','POST',{'url':REEL,'niche':'عمومی','source':'github_fresh_e2e'},45)
+          job=s['job_id']; token=s['poll_token']; seen=[s.get('stage')]; last=int(s.get('overall_progress_percent') or 0)
+          for i in range(120):
+              code,row=rq(f'/v2/viral-jobs/{job}/poll','POST',{'token':token},240)
+              stage=row.get('stage'); status=row.get('status'); op=int(row.get('overall_progress_percent') or 0)
+              assert op>=last,(last,op,row); last=op
+              if stage not in seen: seen.append(stage)
+              print(i+1,status,stage,op,row.get('error_code'))
+              if status=='failed': raise RuntimeError('live backend failed: '+str(row.get('error_code')))
+              if status=='completed':
+                  result=row.get('result') or {}
+                  assert stage=='completed' and op==100,row
+                  assert result.get('learning_persisted') is True,result
+                  assert result.get('analysis_mode')=='vercel_stateless_gemini_apify_real_progress',result
+                  assert isinstance(result.get('audio_visual_analysis'),dict) and result.get('audio_visual_analysis'),result
+                  assert isinstance(result.get('behavioral_analysis'),dict) and result.get('behavioral_analysis'),result
+                  required={'server_prepare','media_resolve','media_download','ai_upload','audio_visual_analysis','behavioral_analysis','learning_persist','completed'}
+                  assert required.issubset(set(seen)),(required-set(seen),seen)
+                  print('FULL_LIVE_E2E_GREEN',seen)
+                  break
+              token=row.get('poll_token') or ''
+              assert len(token)>=20,row
+              time.sleep(max(0.9,float(row.get('retry_after_seconds') or 0)))
+          else: raise RuntimeError('E2E timeout')
+          PY
+
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.10.2'}
+
+      - name: Unit tests and APK build
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - name: APK integrity, signature, version and manifest gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'; test -s "$APK"; unzip -t "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"; SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='29' versionName='0.14.1'" /tmp/badging
+          "$SIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > /tmp/manifest
+          grep -q 'ShareEntryActivity' /tmp/manifest
+          grep -q 'ViralShareActivity' /tmp/manifest
+          grep -q 'android.intent.action.SEND' /tmp/manifest
+          ! grep -q 'SilentPairActivity' /tmp/manifest
+          ! grep -q 'ViralCaptureService' /tmp/manifest
+          ! grep -q 'android.permission.RECORD_AUDIO' /tmp/manifest
+          sha256sum "$APK" | tee /tmp/sha256
+
+      - name: Upload validated APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-v0.14.1-code29-${{ github.run_id }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish validated v0.14.1 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
+          SHA=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
+          NOTES="Validated TakeOff Insights v0.14.1 (code 29). Live Vercel Reel E2E, Supabase learning persistence, Android unit tests, APK integrity, signature, version and manifest gates passed. SHA-256: $SHA"
+          if gh release view v0.14.1 >/dev/null 2>&1; then
+            gh release upload v0.14.1 TakeOff-Insights.apk --clobber
+            gh release edit v0.14.1 --title 'TakeOff Insights v0.14.1' --notes "$NOTES" --latest
+          else
+            gh release create v0.14.1 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights v0.14.1' --notes "$NOTES" --latest
+          fi
