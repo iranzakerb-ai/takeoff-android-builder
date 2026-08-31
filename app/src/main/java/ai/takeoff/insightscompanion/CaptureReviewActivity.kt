@@ -109,20 +109,21 @@ class CaptureReviewActivity : Activity() {
             "major_changes" to "با تغییر زیاد",
             "unknown" to "سناریوی مشخصی نداشت",
         )
+        val fidelityIds = values.map { View.generateViewId() }
         values.forEachIndexed { index, (_, label) ->
             fidelity.addView(RadioButton(this).apply {
                 text = label
                 setTextColor(Color.WHITE)
-                id = 1000 + index
+                id = fidelityIds[index]
             })
         }
-        fidelity.check(if (initial > 0) 1000 else 1003)
+        fidelity.check(if (initial > 0) fidelityIds[0] else fidelityIds[3])
         scenarioSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (position == 0) {
-                    fidelity.check(1003)
-                } else if (fidelity.checkedRadioButtonId == 1003) {
-                    fidelity.check(1000)
+                    fidelity.check(fidelityIds[3])
+                } else if (fidelity.checkedRadioButtonId == fidelityIds[3]) {
+                    fidelity.check(fidelityIds[0])
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
@@ -144,7 +145,7 @@ class CaptureReviewActivity : Activity() {
             payload.put("metrics", updated)
             val selectedScenario = planned.getOrNull(scenarioSpinner.selectedItemPosition - 1)?.scenarioId
             if (selectedScenario.isNullOrBlank()) payload.remove("scenario_id") else payload.put("scenario_id", selectedScenario)
-            val fidelityIndex = (fidelity.checkedRadioButtonId - 1000).coerceIn(0, values.lastIndex)
+            val fidelityIndex = fidelityIds.indexOf(fidelity.checkedRadioButtonId).let { if (it >= 0) it else values.lastIndex }
             payload.put("execution_fidelity", values[fidelityIndex].first)
             payload.put("operator_reviewed", true)
             PayloadQueue(this).enqueue(payload)
