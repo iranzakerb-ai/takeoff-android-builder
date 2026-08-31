@@ -11,7 +11,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TakeOffInsights">
         <activity
-            android:name=".MainActivity"
+            android:name=".GlassHomeActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:documentLaunchMode="never">
@@ -20,6 +20,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:documentLaunchMode="never" />
         <activity
             android:name=".ShareEntryActivity"
             android:exported="true"
@@ -32,13 +37,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".ViralShareActivity"
             android:exported="false"
             android:launchMode="singleTask"
             android:documentLaunchMode="never"
-            android:label="تیک‌آف — تحلیل وایرال"
+            android:label="تیک‌آف — صف یادگیری V4"
             android:theme="@style/Theme.TakeOffInsights" />
         <activity android:name=".CaptureReviewActivity" android:exported="false" android:theme="@style/Theme.TakeOffInsights" />
         <activity
