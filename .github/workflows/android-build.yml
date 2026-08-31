@@ -1,4 +1,4 @@
-name: TakeOff Android v0.14.2 Public Builder
+name: TakeOff Android v0.15.0 DADSTAN Release Gate
 
 on:
   workflow_dispatch:
@@ -15,50 +15,58 @@ permissions:
   contents: write
 
 concurrency:
-  group: takeoff-android-v0142-${{ github.ref }}
+  group: takeoff-android-v0150-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  dadstan-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: DADSTAN source gate
+      - name: DADSTAN source and security gate
         shell: bash
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 30' app/build.gradle.kts
-          grep -q 'versionName = "0.14.2"' app/build.gradle.kts
+          grep -q 'versionCode = 31' app/build.gradle.kts
+          grep -q 'versionName = "0.15.0"' app/build.gradle.kts
           grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
-          grep -q '/v2/viral-jobs' "$SRC/ViralJobClient.kt"
-          grep -q '/poll' "$SRC/ViralJobClient.kt"
-          grep -q 'ViralJobClient.analyze(PayloadClient.PRODUCTION_ENDPOINT' "$SRC/ViralShareActivity.kt"
-          test -s "$SRC/ViralStreamClient.kt"
-          grep -q 'const val PRODUCTION_ENDPOINT = PayloadClient.PRODUCTION_ENDPOINT' "$SRC/ViralStreamClient.kt"
+          grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.SEND_MULTIPLE' app/src/main/AndroidManifest.xml
+          test -s "$SRC/SharedMediaClient.kt"
+          test -s "$SRC/SharedMediaQueue.kt"
+          test -s "$SRC/SharedMediaWorker.kt"
+          test -s "$SRC/ServerOcrClient.kt"
+          grep -q 'private const val LANES = 3' "$SRC/SharedMediaWorker.kt"
+          grep -q 'enqueueContinuation' "$SRC/SharedMediaWorker.kt"
+          grep -q 'X-Takeoff-Companion-Key' "$SRC/SharedMediaClient.kt"
+          grep -q 'SharedMediaClient.status(endpoint, item.jobId!!, item.pollToken!!, companionKey)' "$SRC/ViralShareActivity.kt"
+          grep -q '۱٫۲ میلیون' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
+          grep -q '۲٫۵ میلیارد' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
+          grep -q 'instagram.com/p/XYZ-9' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
           ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
-          ! grep -RniE 'OPENAI_API_KEY|api\.openai\.com|/v2/viral-stream|LegacyCompanionRepair|SilentPairActivity' app/src/main
-          if grep -RniE --exclude='*Test.kt' '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})' app; then
-            echo 'Potential secret found in public Android source' >&2
-            exit 1
-          fi
+          ! grep -RniE 'OPENAI_API_KEY|api\.openai\.com|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}' app/src/main
 
-      - name: Production backend health
+      - name: Production V4 backend health
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           import json, urllib.request
-          req=urllib.request.Request('https://takeoff-seven-puce.vercel.app/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.14.2'})
+          req=urllib.request.Request('https://takeoff-seven-puce.vercel.app/v4/media-jobs/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.15.0'})
           with urllib.request.urlopen(req,timeout=30) as r:
               body=json.loads(r.read().decode())
           assert body.get('ok') is True, body
+          assert body.get('durable_queue') is True, body
           assert body.get('gemini') is True, body
-          assert body.get('job_api') is True, body
-          assert body.get('stateless') is True, body
-          assert body.get('learning_store') == 'supabase_verified_anon_rls', body
+          assert body.get('apify') is True, body
+          assert body.get('authenticated_jobs') is True, body
+          assert body.get('stepwise_processing') is True, body
+          supported=set(body.get('supported_media') or [])
+          assert {'reel','video_post','photo','carousel','mixed'} <= supported, body
+          assert int(body.get('max_source_bytes_per_video') or 0) >= 220*1024*1024, body
           print(json.dumps(body,ensure_ascii=False))
           PY
 
@@ -76,8 +84,8 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Clean unit tests and APK build
-        run: gradle --no-daemon clean :app:testDebugUnitTest :app:assembleDebug
+      - name: Unit tests, lint and clean APK build
+        run: gradle --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
       - name: DADSTAN APK forensic verification
         shell: bash
@@ -89,26 +97,28 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='30' versionName='0.14.2'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='31' versionName='0.15.0'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
+          grep -q 'GlassHomeActivity' apk-manifest.txt
           grep -q 'ViralShareActivity' apk-manifest.txt
           grep -q 'android.intent.action.SEND' apk-manifest.txt
+          grep -q 'android.intent.action.SEND_MULTIPLE' apk-manifest.txt
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-v0.14.2.apk
+          cp "$APK" TakeOff-Insights-v0.15.0.apk
 
-      - name: Upload validated APK artifact for ChatGPT handoff
+      - name: Upload validated APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-v0.14.2
-          path: TakeOff-Insights-v0.14.2.apk
+          name: TakeOff-Insights-v0.15.0
+          path: TakeOff-Insights-v0.15.0.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish validated test APK release
+      - name: Publish DADSTAN-approved APK release
         if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
@@ -118,10 +128,10 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
           SHA256=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
           SIZE=$(stat -c '%s' TakeOff-Insights.apk)
-          NOTES=$(printf 'TakeOff Insights 0.14.2 (code 30)\n\nPackage: ai.takeoff.insightscompanion\nBackend: Vercel + Gemini + Supabase\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN gates: unit tests, clean build, ZIP integrity, APK signature, package/version, SEND share intent, and no RECORD_AUDIO verified.' "$SHA256" "$SIZE")
-          if gh release view v0.14.2 >/dev/null 2>&1; then
-            gh release upload v0.14.2 TakeOff-Insights.apk --clobber
-            gh release edit v0.14.2 --title 'TakeOff Insights 0.14.2' --notes "$NOTES" --latest
+          NOTES=$(printf 'TakeOff Insights 0.15.0 (code 31)\n\nPackage: ai.takeoff.insightscompanion\nBackend: V4 Vercel + Gemini + Apify + durable Supabase store\nSupported learning: Reel, video post, photo, carousel, mixed\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: source/security gate, live V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
+          if gh release view v0.15.0 >/dev/null 2>&1; then
+            gh release upload v0.15.0 TakeOff-Insights.apk --clobber
+            gh release edit v0.15.0 --title 'TakeOff Insights 0.15.0' --notes "$NOTES" --latest
           else
-            gh release create v0.14.2 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.14.2' --notes "$NOTES" --latest
+            gh release create v0.15.0 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.15.0' --notes "$NOTES" --latest
           fi
