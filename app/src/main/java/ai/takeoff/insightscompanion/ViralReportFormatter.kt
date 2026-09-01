@@ -92,7 +92,7 @@ object ViralReportFormatter {
         return if (rendered.isNotBlank() && rendered != "{}") {
             "جزئیات تحلیل ذخیره‌شده\n$rendered"
         } else {
-            "برای این مورد جزئیات معنایی قابل نمایش ذخیره نشده است. از گزینه «تحلیل کامل دوباره» استفاده کن."
+            "برای این مورد جزئیات معنایی قابل نمایش ذخیره نشده است."
         }
     }
 
@@ -166,8 +166,8 @@ object ViralReportFormatter {
         val text = value.trim()
         if (text.length < 2) return text
         return when {
-            text.startsWith("{") && text.endsWith("}") -> runCatching { JSONObject(text) }.getOrDefault(text)
-            text.startsWith("[") && text.endsWith("]") -> runCatching { JSONArray(text) }.getOrDefault(text)
+            text.startsWith("{") && text.endsWith("}") -> runCatching { JSONObject(text) }.getOrNull() ?: text
+            text.startsWith("[") && text.endsWith("]") -> runCatching { JSONArray(text) }.getOrNull() ?: text
             else -> text
         }
     }
