@@ -27,9 +27,13 @@ class SharedMediaWorker(
         val prefs = applicationContext.getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
         val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty())
         val companionKey = SecretStore(applicationContext).get("api_key").orEmpty()
+
+        // Public Instagram media is not private Owner data. If this installation has
+        // not been paired yet, use the existing public viral-evidence boundary rather
+        // than dead-lettering the job with companion_credential_required. Private
+        // Owner Insights paths remain credential-protected elsewhere in the app.
         if (companionKey.isBlank()) {
-            queue.fail(localId, "companion_credential_required", true)
-            return@withContext Result.success()
+            return@withContext processPublicFallback(queue, item, endpoint)
         }
 
         try {
@@ -76,9 +80,6 @@ class SharedMediaWorker(
                 "failed" -> if (runAttemptCount >= 5) Result.success() else Result.retry()
                 null -> Result.success()
                 else -> {
-                    // A successful server stage must not be treated as a failure/retry.
-                    // Append one continuation to the same lane. Existing queued items
-                    // remain ahead of it, providing round-robin fairness across shares.
                     SharedMediaWork.enqueueContinuation(applicationContext, updated)
                     Result.success()
                 }
@@ -86,6 +87,37 @@ class SharedMediaWorker(
         } catch (error: Exception) {
             queue.fail(localId, error.javaClass.simpleName, runAttemptCount >= 5)
             return@withContext if (runAttemptCount >= 5) Result.success() else Result.retry()
+        }
+    }
+
+    private fun processPublicFallback(queue: SharedMediaQueue, item: SharedMediaQueue.Item, endpoint: String): Result {
+        val localId = item.localId
+        return try {
+            queue.mutate(localId) {
+                it.put("status", "processing")
+                    .put("stage", "public_analysis")
+                    .put("progress", 12)
+                    .remove("error")
+            }
+            val response = PayloadClient.postViralEvidence(endpoint, "", item.url, item.niche)
+            if (response.first !in 200..299) {
+                val root = runCatching { JSONObject(response.second) }.getOrNull()
+                val detail = root?.optString("detail").orEmpty().ifBlank { root?.optString("error_code").orEmpty() }
+                val terminal = response.first in 400..499 && response.first !in listOf(408, 425, 429)
+                queue.fail(localId, "HTTP ${response.first}: ${detail.take(100).ifBlank { "server_error" }}", terminal)
+                if (terminal || runAttemptCount >= 5) Result.success() else Result.retry()
+            } else {
+                val root = runCatching { JSONObject(response.second) }.getOrNull()
+                    ?: throw IllegalStateException("invalid_public_analysis_response")
+                val evidence = root.optJSONObject("result")
+                    ?: root.optJSONObject("report")
+                    ?: root
+                queue.completeWithEvidence(localId, evidence)
+                Result.success()
+            }
+        } catch (error: Exception) {
+            queue.fail(localId, error.javaClass.simpleName, runAttemptCount >= 5)
+            if (runAttemptCount >= 5) Result.success() else Result.retry()
         }
     }
 
