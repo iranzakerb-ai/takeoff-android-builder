@@ -162,9 +162,36 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  live-backend:
+    name: L6 Live V4 Backend Repeated Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Three independent production health probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.request
+          url='https://takeoff-virality-engine.onrender.com/v4/media-jobs/health'
+          for i in range(3):
+              req=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN-DeepMedia/1'})
+              with urllib.request.urlopen(req,timeout=45) as r:
+                  body=json.loads(r.read().decode())
+              assert body.get('ok') is True, body
+              assert body.get('durable_queue') is True, body
+              assert body.get('gemini') is True, body
+              assert body.get('apify') is True, body
+              assert body.get('authenticated_jobs') is True, body
+              assert body.get('stepwise_processing') is True, body
+              assert int(body.get('max_source_bytes_per_video') or 0) >= 220*1024*1024, body
+              print('probe',i+1,'PASS',body.get('version'))
+              time.sleep(2)
+          PY
+
   final-dadstan:
-    name: L6 DADSTAN Strict Final Judge
-    needs: [intake-and-compile, evidence-and-queue, analyzer-ui, security-and-lint, apk-forensics]
+    name: L7 DADSTAN Strict Final Judge
+    needs: [intake-and-compile, evidence-and-queue, analyzer-ui, security-and-lint, apk-forensics, live-backend]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -176,4 +203,5 @@ jobs:
           test '${{ needs.analyzer-ui.result }}' = 'success'
           test '${{ needs.security-and-lint.result }}' = 'success'
           test '${{ needs.apk-forensics.result }}' = 'success'
+          test '${{ needs.live-backend.result }}' = 'success'
           echo 'DADSTAN DEEP MEDIA 10-TASK VERDICT: PASS'
