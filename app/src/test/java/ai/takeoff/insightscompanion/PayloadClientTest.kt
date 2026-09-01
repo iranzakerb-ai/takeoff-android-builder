@@ -36,11 +36,11 @@ class PayloadClientTest {
         }
     }
 
-    @Test fun viralPairingMigratesStalePublicEndpointsToProduction() {
-        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint(""))
-        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://old-takeoff-service.onrender.com"))
-        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://example.com/custom"))
-        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("not a url"))
+    @Test fun viralPairingMigratesStalePublicEndpointsToDurableRuntime() {
+        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint(""))
+        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://old-takeoff-service.onrender.com"))
+        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://example.com/custom"))
+        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("not a url"))
     }
 
     @Test fun viralPairingKeepsExplicitLocalDevelopmentEndpoint() {
