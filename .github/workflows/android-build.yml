@@ -1,4 +1,4 @@
-name: TakeOff Android v0.15.1 DADSTAN Release Gate
+name: TakeOff Android v0.15.2 DADSTAN Release Gate
 
 on:
   workflow_dispatch:
@@ -9,13 +9,16 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
+      - 'PRODUCT_CONSTITUTION.md'
+      - 'AGENTS.md'
+      - 'README.md'
       - '.github/workflows/android-build.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: takeoff-android-v0151-${{ github.ref }}
+  group: takeoff-android-v0152-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,17 +28,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: DADSTAN source and security gate
+      - name: DADSTAN source, mission and security gate
         shell: bash
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 32' app/build.gradle.kts
-          grep -q 'versionName = "0.15.1"' app/build.gradle.kts
+
+          # Release identity
+          grep -q 'versionCode = 33' app/build.gradle.kts
+          grep -q 'versionName = "0.15.2"' app/build.gradle.kts
+
+          # Product constitution is mandatory and must preserve both learning loops.
+          test -s PRODUCT_CONSTITUTION.md
+          test -s AGENTS.md
+          grep -q 'TWO-MISSION LOCK' PRODUCT_CONSTITUTION.md
+          grep -q 'Owner Outcome Capture' PRODUCT_CONSTITUTION.md
+          grep -q 'Viral Reel Learning' PRODUCT_CONSTITUTION.md
+          grep -q 'north-star optimization target' PRODUCT_CONSTITUTION.md
+          grep -q 'PRODUCT_CONSTITUTION.md' AGENTS.md
+
+          # The primary UX must expose the two user jobs, not an engineering console.
+          grep -q 'ثبت آمار ریلزهای خودمان' "$SRC/GlassHomeActivity.kt"
+          grep -q 'ریلز میلیونی را Share کن' "$SRC/GlassHomeActivity.kt"
+          grep -q 'دو کار. یک حلقه یادگیری.' "$SRC/GlassHomeActivity.kt"
+          ! grep -q 'V4 LEARNING CONSOLE' "$SRC/GlassHomeActivity.kt"
+          grep -q 'یادگیری از ریلزهای وایرال' "$SRC/ViralShareActivity.kt"
+
+          # Owner/edge and public viral runtime are intentionally separated.
           grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
           grep -q 'https://takeoff-virality-engine.onrender.com' "$SRC/PayloadClient.kt"
+
+          # Public Instagram learning must be credential-free, including migration of old dead letters.
           grep -q 'processPublicFallback' "$SRC/SharedMediaWorker.kt"
           ! grep -q 'queue.fail(localId, "companion_credential_required"' "$SRC/SharedMediaWorker.kt"
+          grep -q 'recoverLegacyCredentialFailures' "$SRC/SharedMediaQueue.kt"
+          grep -q 'recoverLegacyCredentialFailures' "$SRC/GlassHomeActivity.kt"
+          grep -q 'recoverLegacyCredentialFailures' "$SRC/ViralShareActivity.kt"
+
+          # Existing Android contracts.
           grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.SEND_MULTIPLE' app/src/main/AndroidManifest.xml
           test -s "$SRC/SharedMediaClient.kt"
@@ -49,6 +79,8 @@ jobs:
           grep -q '۱٫۲ میلیون' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
           grep -q '۲٫۵ میلیارد' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
           grep -q 'instagram.com/p/XYZ-9' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
+
+          # Security boundaries.
           ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
           ! grep -RniE 'OPENAI_API_KEY|api\.openai\.com|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}' app/src/main
 
@@ -58,7 +90,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json, urllib.request
-          req=urllib.request.Request('https://takeoff-virality-engine.onrender.com/v4/media-jobs/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.15.1'})
+          req=urllib.request.Request('https://takeoff-virality-engine.onrender.com/v4/media-jobs/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.15.2'})
           with urllib.request.urlopen(req,timeout=45) as r:
               body=json.loads(r.read().decode())
           assert body.get('ok') is True, body
@@ -100,7 +132,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='32' versionName='0.15.1'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='33' versionName='0.15.2'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'GlassHomeActivity' apk-manifest.txt
@@ -110,14 +142,14 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-v0.15.1.apk
+          cp "$APK" TakeOff-Insights-v0.15.2.apk
 
       - name: Upload validated APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-v0.15.1
-          path: TakeOff-Insights-v0.15.1.apk
+          name: TakeOff-Insights-v0.15.2
+          path: TakeOff-Insights-v0.15.2.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -131,10 +163,10 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
           SHA256=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
           SIZE=$(stat -c '%s' TakeOff-Insights.apk)
-          NOTES=$(printf 'TakeOff Insights 0.15.1 (code 32)\n\nPackage: ai.takeoff.insightscompanion\nBackend: durable V4 Render runtime + Vercel edge + Gemini + Apify + durable Postgres store\nPublic Instagram learning: credential-free public evidence path\nPrivate Owner data: companion credential remains required\nSupported learning: Reel, video post, photo, carousel, mixed\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
-          if gh release view v0.15.1 >/dev/null 2>&1; then
-            gh release upload v0.15.1 TakeOff-Insights.apk --clobber
-            gh release edit v0.15.1 --title 'TakeOff Insights 0.15.1' --notes "$NOTES" --latest
+          NOTES=$(printf 'TakeOff Insights 0.15.2 (code 33)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nUX: simplified Persian glassmorphism with exactly two primary jobs.\nLegacy companion_credential_required queue items: auto-recovered and resubmitted through credential-free public evidence path.\nBackend: durable V4 Render runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPublic Instagram learning: credential-free public evidence path.\nPrivate Owner data: companion credential remains required.\nSupported learning: Reel, video post, photo, carousel, mixed.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
+          if gh release view v0.15.2 >/dev/null 2>&1; then
+            gh release upload v0.15.2 TakeOff-Insights.apk --clobber
+            gh release edit v0.15.2 --title 'TakeOff Insights 0.15.2' --notes "$NOTES" --latest
           else
-            gh release create v0.15.1 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.15.1' --notes "$NOTES" --latest
+            gh release create v0.15.2 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.15.2' --notes "$NOTES" --latest
           fi
