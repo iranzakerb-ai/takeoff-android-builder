@@ -17,7 +17,6 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -109,7 +108,7 @@ class ViralShareActivity : Activity() {
 
         root.addView(glassCard(strong = true).apply {
             addView(label("یادگیری از ریلزهای وایرال", 25f, Color.WHITE, true))
-            addView(label("از Instagram به تیک‌آف Share کن؛ دانلود و تحلیل روی سرور انجام می‌شود.", 13f, muted, false).apply {
+            addView(label("از Instagram به تیک‌آف Share کن؛ سرور خود ویدیو، صدا و ساختار محتوا را تحلیل می‌کند.", 13f, muted, false).apply {
                 setPadding(0, dp(7), 0, dp(12))
             })
             summary = label("در حال خواندن…", 13f, accent, true)
@@ -174,11 +173,15 @@ class ViralShareActivity : Activity() {
 
         val result = item.resultJson?.let { raw -> runCatching { JSONObject(raw) }.getOrNull() }
         if (item.status == "completed" && result != null) {
-            val quick = quickResult(result)
+            val quick = ViralReportFormatter.quick(result)
             if (quick.isNotBlank()) {
                 addView(label(quick, 12.5f, Color.WHITE, false).apply { setPadding(0, dp(9), 0, 0) })
+            } else {
+                addView(label("تحلیل کامل ذخیره شده؛ برای دیدن جزئیات گزارش را باز کن.", 12f, muted, false).apply {
+                    setPadding(0, dp(9), 0, 0)
+                })
             }
-            addView(primary("دیدن نتیجه تحلیل") { showDetail(item, result) }, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(12) })
+            addView(primary("گزارش کامل تحلیل") { showDetail(item, result) }, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(12) })
         } else if (item.status in setOf("failed", "dead_letter")) {
             addView(primary("تلاش مجدد") {
                 SharedMediaWork.retry(this@ViralShareActivity, item.localId)
@@ -187,38 +190,26 @@ class ViralShareActivity : Activity() {
         }
     }
 
-    private fun quickResult(root: JSONObject): String {
-        val analysis = root.optJSONObject("analysis") ?: root
-        val hook = textFrom(analysis.opt("hook_intelligence") ?: root.opt("hook"), listOf("exact_hook", "hook", "opening", "promise", "visual_hook"))
-        val scenario = textFrom(analysis.opt("scenario_reconstruction") ?: root.opt("scenario"), listOf("summary", "scenario", "structure"))
-        return buildString {
-            if (hook.isNotBlank()) append("هوک: ").append(hook.take(120))
-            if (scenario.isNotBlank()) {
-                if (isNotEmpty()) append("\n")
-                append("سناریو: ").append(scenario.take(140))
-            }
-        }
-    }
-
     private fun showDetail(item: SharedMediaQueue.Item, root: JSONObject) {
-        val analysis = root.optJSONObject("analysis") ?: root
-        val text = buildString {
-            section("هوک", pretty(analysis.opt("hook_intelligence") ?: root.opt("hook")))
-            section("سناریو", pretty(analysis.opt("scenario_reconstruction") ?: root.opt("scenario")))
-            section("دیالوگ و متن", pretty(analysis.opt("dialogue_and_text") ?: root.opt("dialogue")))
-            section("کال تو اکشن", pretty(analysis.opt("cta") ?: analysis.opt("call_to_action") ?: root.opt("cta")))
-            section("تصویر و تدوین", pretty(analysis.opt("visual_grammar") ?: analysis.opt("camera_and_editing")))
-            section("صدا و موسیقی", pretty(analysis.opt("audio_music")))
-            section("مکانیزم‌های رفتاری", pretty(analysis.opt("behavioral_mechanisms") ?: analysis.opt("reusable_mechanisms")))
-            section("فرضیه ریتنشن", pretty(analysis.opt("retention_hypotheses")))
-            section("چرا وایرال شده", pretty(analysis.opt("share_save_comment_hypotheses") ?: analysis.opt("virality_hypotheses")))
-        }.ifBlank { "تحلیل ذخیره شده است، اما خلاصه قابل نمایش در این نسخه پیدا نشد." }
-
-        AlertDialog.Builder(this)
-            .setTitle("تحلیل ${item.shortcode}")
-            .setMessage(text)
+        val report = ViralReportFormatter.full(root)
+        val body = label(report, 14f, Color.WHITE, false).apply {
+            setTextIsSelectable(true)
+            setPadding(dp(18), dp(18), dp(18), dp(24))
+        }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            addView(body)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("تحلیل کامل ${item.shortcode}")
+            .setView(scroll)
             .setPositiveButton("بستن", null)
-            .show()
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
+            dialog.window?.setBackgroundDrawable(rounded(Color.rgb(13, 23, 34), 24, border))
+        }
+        dialog.show()
     }
 
     private fun refreshServerProgress() {
@@ -276,8 +267,8 @@ class ViralShareActivity : Activity() {
         "public_analysis" -> "در حال دریافت و تحلیل ریلز"
         "media_fetch", "download" -> "در حال دریافت ویدیو"
         "transcription" -> "در حال فهم دیالوگ"
-        "visual_analysis" -> "در حال تحلیل تصویر"
-        "learning_persist" -> "در حال ثبت در حافظه"
+        "visual_analysis", "deep_analysis" -> "در حال فهم تصویر، هوک و سناریو"
+        "learning", "learning_persist" -> "در حال ثبت در حافظه"
         "completed" -> "تمام شد"
         else -> "${item.progress}٪ پیشرفت"
     }
@@ -294,42 +285,6 @@ class ViralShareActivity : Activity() {
         }
     }
 
-    private fun textFrom(value: Any?, preferredKeys: List<String>): String = when (value) {
-        null, JSONObject.NULL -> ""
-        is String -> value.trim()
-        is JSONObject -> {
-            preferredKeys.firstNotNullOfOrNull { key -> value.optString(key).trim().takeIf { it.isNotBlank() } }
-                ?: value.toString()
-        }
-        else -> value.toString()
-    }
-
-    private fun pretty(value: Any?): String = when (value) {
-        null, JSONObject.NULL -> ""
-        is String -> value
-        is JSONObject -> buildString {
-            val keys = value.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val child = pretty(value.opt(key))
-                if (child.isNotBlank()) append("• ").append(child).append('\n')
-            }
-        }.trim()
-        is JSONArray -> buildString {
-            for (i in 0 until value.length()) {
-                val child = pretty(value.opt(i))
-                if (child.isNotBlank()) append("• ").append(child).append('\n')
-            }
-        }.trim()
-        else -> value.toString()
-    }
-
-    private fun StringBuilder.section(title: String, value: String) {
-        if (value.isBlank() || value == "null") return
-        if (isNotEmpty()) append("\n\n")
-        append(title).append("\n").append(value)
-    }
-
     private fun glassCard(strong: Boolean = false) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -344,7 +299,7 @@ class ViralShareActivity : Activity() {
         setTextColor(color)
         gravity = Gravity.START
         if (bold) typeface = Typeface.DEFAULT_BOLD
-        setLineSpacing(0f, 1.18f)
+        setLineSpacing(0f, 1.2f)
     }
 
     private fun primary(value: String, click: () -> Unit) = Button(this).apply {
