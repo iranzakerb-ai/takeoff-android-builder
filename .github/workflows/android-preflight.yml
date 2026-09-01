@@ -28,13 +28,13 @@ jobs:
           gradle-version: '8.10.2'
       - name: Compile tests and APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify v0.14.2 Vercel Job API contract
+      - name: Verify v0.15.3 Vercel Job API contract
         shell: bash
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 30' app/build.gradle.kts
-          grep -q 'versionName = "0.14.2"' app/build.gradle.kts
+          grep -q 'versionCode = 34' app/build.gradle.kts
+          grep -q 'versionName = "0.15.3"' app/build.gradle.kts
           grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
           test -s "$SRC/ViralJobClient.kt"
           test -s "$SRC/ViralStreamClient.kt"
