@@ -1,7 +1,0 @@
-from pathlib import Path
-p=Path('.github/workflows/android-build.yml')
-s=p.read_text()
-s=s.replace("grep -q 'دو کار. یک حلقه یادگیری.' \"$SRC/GlassHomeActivity.kt\"", "grep -q 'هوشمندتر تحلیل کن، قوی‌تر محتوا بساز' \"$SRC/GlassHomeActivity.kt\"\n          # Approved Glass Motion visual contract: white first, then orange, teal, navy.\n          grep -q 'private val white = Color.rgb(250, 252, 255)' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'private val orange = Color.rgb(255, 122, 26)' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'private val teal = Color.rgb(16, 202, 205)' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'private val navy = Color.rgb(9, 24, 43)' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'playEntrance' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'overridePendingTransition' \"$SRC/GlassHomeActivity.kt\"\n          grep -q 'private val primary = Color.rgb(255, 122, 26)' \"$SRC/MainActivity.kt\"\n          grep -q 'private val accent = Color.rgb(16, 202, 205)' \"$SRC/MainActivity.kt\"\n          grep -q 'DecelerateInterpolator' \"$SRC/MainActivity.kt\"\n          grep -q 'private val orange = Color.rgb(255, 122, 26)' \"$SRC/ViralShareActivity.kt\"\n          grep -q 'private val primary = Color.rgb(255, 122, 26)' \"$SRC/CaptureReviewActivity.kt\"")
-p.write_text(s)
-Path('.github/workflows/fix-dadstan-ui-gate-once.yml').unlink(missing_ok=True)
-Path('tools/fix_dadstan_ui_gate.py').unlink(missing_ok=True)
