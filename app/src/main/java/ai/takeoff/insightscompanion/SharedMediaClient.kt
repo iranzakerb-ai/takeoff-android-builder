@@ -1,6 +1,7 @@
 package ai.takeoff.insightscompanion
 
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -8,6 +9,7 @@ import java.net.URLEncoder
 object SharedMediaClient {
     private const val CONNECT_TIMEOUT_MS = 20_000
     private const val PROCESS_READ_TIMEOUT_MS = 285_000
+    private const val UPLOAD_READ_TIMEOUT_MS = 300_000
 
     data class Response(val code: Int, val body: JSONObject?, val raw: String)
 
@@ -43,27 +45,28 @@ object SharedMediaClient {
         return Response(code, body, raw)
     }
 
-    fun start(
-        endpoint: String,
-        url: String,
-        niche: String,
-        accountId: String?,
-        forceRefresh: Boolean = true,
-        companionKey: String = "",
-    ): Response {
+    fun start(endpoint: String, url: String, niche: String, accountId: String?, forceRefresh: Boolean = true, companionKey: String = ""): Response {
         if (companionKey.isBlank()) return Response(401, JSONObject().put("detail", "companion credential required"), "")
         val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         val conn = connection("$base/v4/media-jobs", "POST", 70_000, companionKey)
-        writeJson(
-            conn,
-            JSONObject()
-                .put("url", url)
-                .put("niche", niche)
-                .put("account_id", accountId ?: JSONObject.NULL)
-                .put("source", "android_share_v4")
-                .put("force_refresh", forceRefresh),
-        )
+        writeJson(conn, JSONObject().put("url", url).put("niche", niche).put("account_id", accountId ?: JSONObject.NULL).put("source", "android_share_v4").put("force_refresh", forceRefresh))
         return try { read(conn) } finally { conn.disconnect() }
+    }
+
+    /** Upload a real Reel file received through Android's share boundary. */
+    fun uploadDirectMedia(endpoint: String, url: String, niche: String, file: File, mime: String?, companionKey: String): Response {
+        if (companionKey.isBlank()) return Response(401, JSONObject().put("detail", "companion credential required"), "")
+        require(file.isFile && file.length() > 0L) { "shared media missing" }
+        val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
+        val target = "$base/v2/viral-evidence/upload?url=${enc(url)}&niche=${enc(niche)}"
+        val conn = connection(target, "POST", UPLOAD_READ_TIMEOUT_MS, companionKey)
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", mime?.takeIf { it.startsWith("video/") } ?: "video/mp4")
+        conn.setFixedLengthStreamingMode(file.length())
+        return try {
+            file.inputStream().buffered().use { input -> conn.outputStream.buffered().use { output -> input.copyTo(output, 1024 * 1024) } }
+            read(conn)
+        } finally { conn.disconnect() }
     }
 
     fun process(endpoint: String, jobId: String, token: String, companionKey: String = ""): Response {
