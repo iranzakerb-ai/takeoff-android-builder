@@ -21,7 +21,7 @@ This evidence is not a vanity dashboard. It must feed the TakeOff learning syste
 
 Because the product is a Meta-API substitute, it may use on-device capture/OCR and user-authorized flows. It must never fabricate unavailable Owner metrics or silently convert missing data to zero.
 
-## Mission 2 — Learn From Million-View / High-Performing Reels
+## Mission 2 — Viral Reel Learning: Learn From Million-View / High-Performing Reels
 
 The user can manually **Share a public Instagram Reel/post to TakeOff**. The server must then, as available and lawful:
 
