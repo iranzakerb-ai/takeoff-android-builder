@@ -1,0 +1,28 @@
+name: Apply Glass Motion UI Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-glass-motion-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved white-orange-teal glass motion system
+        run: python tools/apply_glass_motion_once.py
+      - name: Commit migrated UI source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'takeoff-ui-bot'
+          git config user.email 'takeoff-ui-bot@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'ui: roll out approved glass motion system across app'
+          git push origin HEAD:main
