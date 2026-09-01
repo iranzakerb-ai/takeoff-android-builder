@@ -105,6 +105,43 @@ class SharedMediaQueue(context: Context) {
         null
     }
 
+    /**
+     * v0.15.0 could dead-letter public Instagram shares when a Companion credential
+     * was absent. Public viral learning no longer requires that credential. On upgrade,
+     * automatically revive only those obsolete credential failures and clear any stale
+     * server token so the item is re-submitted through the public path.
+     */
+    fun recoverLegacyCredentialFailures(): List<Item> = synchronized(LOCK) {
+        val arr = read()
+        val recovered = mutableListOf<Item>()
+        var changed = false
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            val status = obj.optString("status")
+            if (status !in setOf("failed", "dead_letter")) continue
+            val error = obj.optString("error").lowercase()
+            val obsoleteCredentialFailure = listOf(
+                "companion_credential_required",
+                "invalid companion key",
+                "master companion key required",
+                "http 401",
+                "401 unauthorized",
+            ).any { it in error }
+            if (!obsoleteCredentialFailure) continue
+            obj.put("status", "queued")
+            obj.put("stage", "queued")
+            obj.put("progress", 0)
+            obj.remove("error")
+            obj.remove("job_id")
+            obj.remove("poll_token")
+            obj.put("updated_at", System.currentTimeMillis())
+            recovered += parse(obj)
+            changed = true
+        }
+        if (changed) write(arr)
+        recovered
+    }
+
     fun attachServerJob(localId: String, root: JSONObject): Item? = mutate(localId) { obj ->
         obj.put("job_id", root.optString("job_id"))
         root.optString("poll_token").takeIf { it.isNotBlank() }?.let { obj.put("poll_token", it) }
