@@ -45,6 +45,11 @@ jobs:
           grep -q 'SharedMediaClient.status(endpoint, item.jobId!!, item.pollToken!!, companionKey)' "$SRC/ViralShareActivity.kt"
           grep -q 'processPublicFallback' "$SRC/SharedMediaWorker.kt"
           grep -q 'recoverLegacyCredentialFailures' "$SRC/ViralShareActivity.kt"
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'ensureNotificationPermission' "$SRC/GlassHomeActivity.kt"
+          grep -q 'requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS)' "$SRC/GlassHomeActivity.kt"
+          grep -q 'trimCompletedItems' "$SRC/SharedMediaQueue.kt"
+          grep -q 'trimmingCompletedQueueKeepsNewestCompletedItemsAndAllActiveItems' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
           ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
       - name: Verify APK package, signature and integrity
         shell: bash
@@ -58,6 +63,9 @@ jobs:
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           grep -F "package: name='ai.takeoff.insightscompanion' versionCode='34' versionName='0.15.3'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
+          grep -q 'android.permission.POST_NOTIFICATIONS' apk-manifest.txt
+          ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           cp "$APK" TakeOff-Insights-v0.15.3.apk
       - name: Upload validated APK artifact
