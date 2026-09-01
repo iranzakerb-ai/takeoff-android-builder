@@ -1,0 +1,179 @@
+name: TakeOff Deep Media 10-Task DADSTAN
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/dadstan-deep-media.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  intake-and-compile:
+    name: L1 Intake / Resolver / Compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Clean unit test and compile
+        run: gradle --no-daemon clean :app:testDebugUnitTest :app:assembleDebug
+      - name: Video intake contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=app/src/main/java/ai/takeoff/insightscompanion
+          test -s "$SRC/SharedMediaIntake.kt"
+          grep -q 'Intent.EXTRA_STREAM' "$SRC/SharedMediaIntake.kt"
+          grep -q '220L \* 1024L \* 1024L' "$SRC/SharedMediaIntake.kt"
+          grep -q 'SharedMediaIntake.mediaUris' "$SRC/ShareEntryActivity.kt"
+          grep -q 'SharedMediaIntake.persist' "$SRC/ShareEntryActivity.kt"
+          grep -q 'android:mimeType="video/\*"' app/src/main/AndroidManifest.xml
+          grep -q 'attachLocalMedia' "$SRC/SharedMediaQueue.kt"
+          grep -q 'uploadDirectMedia' "$SRC/SharedMediaClient.kt"
+
+  evidence-and-queue:
+    name: L2 Evidence / Queue / Fail-Closed
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Metadata-only must never be learned
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=app/src/main/java/ai/takeoff/insightscompanion
+          grep -q 'evidenceIsVideoBacked' "$SRC/SharedMediaQueue.kt"
+          grep -q 'markNeedsMedia' "$SRC/SharedMediaQueue.kt"
+          grep -q 'backendStatus == "partial" || !videoBacked' "$SRC/SharedMediaWorker.kt"
+          grep -q 'needs_media' "$SRC/SharedMediaWorker.kt"
+          grep -q 'metadataOnlyEvidenceIsNeverConsideredVideoBacked' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
+          grep -q 'explicitVideoAnalysisIsAcceptedAsVideoBacked' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
+          grep -q 'private const val LANES = 3' "$SRC/SharedMediaWorker.kt"
+          grep -q 'ExistingWorkPolicy.APPEND_OR_REPLACE' "$SRC/SharedMediaWorker.kt"
+
+  analyzer-ui:
+    name: L3 Analyzer UX / Inline Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smart engine UX contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=app/src/main/java/ai/takeoff/insightscompanion/ViralShareActivity.kt
+          grep -q 'موتور هوشمند تحلیل ریلز' "$SRC"
+          grep -q 'آماده‌سازی موتور' "$SRC"
+          grep -q 'یافتن فایل اصلی ریلز' "$SRC"
+          grep -q 'دریافت واقعی ویدیو' "$SRC"
+          grep -q 'تحلیل صدا، تصویر و متن' "$SRC"
+          grep -q 'تحلیل رفتاری و Retention' "$SRC"
+          grep -q 'تطبیق با حافظه و الگوها' "$SRC"
+          grep -q 'ثبت در حافظه یادگیری' "$SRC"
+          grep -q 'انتخاب فایل اصلی ویدیو' "$SRC"
+          grep -q 'ViralReportFormatter.full' "$SRC"
+          grep -q 'reportsHost' "$SRC"
+          ! grep -q 'گزارش کامل تحلیل' "$SRC"
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('app/src/main/java/ai/takeoff/insightscompanion/ViralShareActivity.kt').read_text()
+          assert s.index('text = "بستن"') < s.index('reportsHost = LinearLayout')
+          PY
+
+  security-and-lint:
+    name: L4 Security / Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Lint
+        run: gradle --no-daemon :app:lintDebug
+      - name: Adversarial security scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
+          ! grep -RniE 'OPENAI_API_KEY|api\.openai\.com|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' app/src/main
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+
+  apk-forensics:
+    name: L5 Clean APK / Forensics
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - run: gradle --no-daemon clean :app:assembleDebug
+      - name: APK forensic verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" > badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='34' versionName='0.15.3'" badging.txt
+          "$SIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > manifest.txt
+          grep -q 'GlassHomeActivity' manifest.txt
+          grep -q 'ShareEntryActivity' manifest.txt
+          grep -q 'ViralShareActivity' manifest.txt
+          grep -q 'android.intent.action.SEND' manifest.txt
+          grep -q 'video/' manifest.txt
+          ! grep -q 'android.permission.RECORD_AUDIO' manifest.txt
+          sha256sum "$APK" > apk-sha256.txt
+          cp "$APK" TakeOff-Insights-v0.15.3-Deep-Media.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-v0.15.3-Deep-Media
+          path: TakeOff-Insights-v0.15.3-Deep-Media.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  final-dadstan:
+    name: L6 DADSTAN Strict Final Judge
+    needs: [intake-and-compile, evidence-and-queue, analyzer-ui, security-and-lint, apk-forensics]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Final adversarial verdict
+        shell: bash
+        run: |
+          test '${{ needs.intake-and-compile.result }}' = 'success'
+          test '${{ needs.evidence-and-queue.result }}' = 'success'
+          test '${{ needs.analyzer-ui.result }}' = 'success'
+          test '${{ needs.security-and-lint.result }}' = 'success'
+          test '${{ needs.apk-forensics.result }}' = 'success'
+          echo 'DADSTAN DEEP MEDIA 10-TASK VERDICT: PASS'
