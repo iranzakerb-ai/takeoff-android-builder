@@ -1,0 +1,22 @@
+name: Fix DADSTAN Glass Motion Gate Once
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fix-dadstan-ui-gate-once.yml']
+permissions:
+  contents: write
+jobs:
+  fix-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python tools/fix_dadstan_ui_gate.py
+      - shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'takeoff-dadstan-bot'
+          git config user.email 'takeoff-dadstan-bot@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'ci: align DADSTAN with approved glass motion design'
+          git push origin HEAD:main
