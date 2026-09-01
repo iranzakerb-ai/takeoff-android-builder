@@ -43,6 +43,25 @@ class SharedMediaQueue(context: Context) {
             .toList()
 
         fun shortcode(url: String): String = url.trimEnd('/').substringAfterLast('/')
+
+        internal fun trimCompletedItems(source: JSONArray, maxCompleted: Int): JSONArray {
+            val limit = maxCompleted.coerceAtLeast(0)
+            var completedTotal = 0
+            for (i in 0 until source.length()) {
+                if (source.optJSONObject(i)?.optString("status") == "completed") completedTotal++
+            }
+            var completedToDrop = (completedTotal - limit).coerceAtLeast(0)
+            val keep = JSONArray()
+            for (i in 0 until source.length()) {
+                val obj = source.optJSONObject(i) ?: continue
+                if (obj.optString("status") == "completed" && completedToDrop > 0) {
+                    completedToDrop--
+                    continue
+                }
+                keep.put(obj)
+            }
+            return keep
+        }
     }
 
     private val secret = SecretStore(context.applicationContext)
@@ -194,16 +213,7 @@ class SharedMediaQueue(context: Context) {
     }
 
     fun trimCompleted(maxCompleted: Int = 120) = synchronized(LOCK) {
-        val arr = read(); val keep = JSONArray(); var completed = 0
-        for (i in 0 until arr.length()) {
-            val obj = arr.optJSONObject(i) ?: continue
-            val done = obj.optString("status") == "completed"
-            if (!done || completed < maxCompleted) {
-                keep.put(obj)
-                if (done) completed++
-            }
-        }
-        write(keep)
+        write(trimCompletedItems(read(), maxCompleted))
     }
 
     private fun parse(obj: JSONObject) = Item(
