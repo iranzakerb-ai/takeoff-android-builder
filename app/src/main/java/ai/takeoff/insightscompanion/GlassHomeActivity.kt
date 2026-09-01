@@ -1,12 +1,15 @@
 package ai.takeoff.insightscompanion
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -36,6 +39,7 @@ class GlassHomeActivity : Activity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = bg0
         setContentView(buildUi())
+        ensureNotificationPermission()
         recoverOldPublicShareFailures()
         refreshLocal()
         refreshServer()
@@ -45,6 +49,14 @@ class GlassHomeActivity : Activity() {
         super.onResume()
         recoverOldPublicShareFailures()
         refreshLocal()
+    }
+
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1201)
+        }
     }
 
     private fun recoverOldPublicShareFailures() {
