@@ -1,5 +1,7 @@
 package ai.takeoff.insightscompanion
 
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,5 +18,19 @@ class SharedMediaQueueContractTest {
 
     @Test fun rejectsNonInstagramUrls() {
         assertTrue(SharedMediaQueue.extractUrls("https://example.com/p/ABC/").isEmpty())
+    }
+
+    @Test fun trimmingCompletedQueueKeepsNewestCompletedItemsAndAllActiveItems() {
+        val source = JSONArray()
+            .put(JSONObject().put("local_id", "old-1").put("status", "completed"))
+            .put(JSONObject().put("local_id", "active").put("status", "processing"))
+            .put(JSONObject().put("local_id", "old-2").put("status", "completed"))
+            .put(JSONObject().put("local_id", "new-1").put("status", "completed"))
+            .put(JSONObject().put("local_id", "new-2").put("status", "completed"))
+
+        val trimmed = SharedMediaQueue.trimCompletedItems(source, 2)
+        val ids = (0 until trimmed.length()).map { trimmed.getJSONObject(it).getString("local_id") }
+
+        assertEquals(listOf("active", "new-1", "new-2"), ids)
     }
 }
