@@ -28,7 +28,7 @@ jobs:
           gradle-version: '8.10.2'
       - name: Compile tests and APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify v0.15.3 Vercel Job API contract
+      - name: Verify v0.15.3 V4 media contract
         shell: bash
         run: |
           set -euo pipefail
@@ -36,10 +36,34 @@ jobs:
           grep -q 'versionCode = 34' app/build.gradle.kts
           grep -q 'versionName = "0.15.3"' app/build.gradle.kts
           grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
-          test -s "$SRC/ViralJobClient.kt"
-          test -s "$SRC/ViralStreamClient.kt"
-          grep -q '/v2/viral-jobs' "$SRC/ViralJobClient.kt"
-          grep -q '/poll' "$SRC/ViralJobClient.kt"
-          grep -q 'ViralJobClient.analyze(PayloadClient.PRODUCTION_ENDPOINT' "$SRC/ViralShareActivity.kt"
-          grep -q 'const val PRODUCTION_ENDPOINT = PayloadClient.PRODUCTION_ENDPOINT' "$SRC/ViralStreamClient.kt"
+          grep -q 'https://takeoff-virality-engine.onrender.com' "$SRC/PayloadClient.kt"
+          test -s "$SRC/SharedMediaClient.kt"
+          test -s "$SRC/SharedMediaQueue.kt"
+          test -s "$SRC/SharedMediaWorker.kt"
+          grep -q '/v4/media-jobs' "$SRC/SharedMediaClient.kt"
+          grep -q '/process' "$SRC/SharedMediaClient.kt"
+          grep -q 'SharedMediaClient.status(endpoint, item.jobId!!, item.pollToken!!, companionKey)' "$SRC/ViralShareActivity.kt"
+          grep -q 'processPublicFallback' "$SRC/SharedMediaWorker.kt"
+          grep -q 'recoverLegacyCredentialFailures' "$SRC/ViralShareActivity.kt"
           ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
+      - name: Verify APK package, signature and integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          unzip -t "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='34' versionName='0.15.3'" apk-badging.txt
+          "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+          cp "$APK" TakeOff-Insights-v0.15.3.apk
+      - name: Upload validated APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-v0.15.3-preflight
+          path: TakeOff-Insights-v0.15.3.apk
+          if-no-files-found: error
+          retention-days: 30
