@@ -80,6 +80,9 @@ jobs:
           # Existing Android contracts.
           grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.SEND_MULTIPLE' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'ensureNotificationPermission' "$SRC/GlassHomeActivity.kt"
+          grep -q 'requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS)' "$SRC/GlassHomeActivity.kt"
           test -s "$SRC/SharedMediaClient.kt"
           test -s "$SRC/SharedMediaQueue.kt"
           test -s "$SRC/SharedMediaWorker.kt"
@@ -88,6 +91,8 @@ jobs:
           grep -q 'enqueueContinuation' "$SRC/SharedMediaWorker.kt"
           grep -q 'X-Takeoff-Companion-Key' "$SRC/SharedMediaClient.kt"
           grep -q 'SharedMediaClient.status(endpoint, item.jobId!!, item.pollToken!!, companionKey)' "$SRC/ViralShareActivity.kt"
+          grep -q 'trimCompletedItems' "$SRC/SharedMediaQueue.kt"
+          grep -q 'trimmingCompletedQueueKeepsNewestCompletedItemsAndAllActiveItems' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
           grep -q '۱٫۲ میلیون' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
           grep -q '۲٫۵ میلیارد' app/src/test/java/ai/takeoff/insightscompanion/MetricParserLargeCountTest.kt
           grep -q 'instagram.com/p/XYZ-9' app/src/test/java/ai/takeoff/insightscompanion/SharedMediaQueueContractTest.kt
@@ -151,6 +156,7 @@ jobs:
           grep -q 'ViralShareActivity' apk-manifest.txt
           grep -q 'android.intent.action.SEND' apk-manifest.txt
           grep -q 'android.intent.action.SEND_MULTIPLE' apk-manifest.txt
+          grep -q 'android.permission.POST_NOTIFICATIONS' apk-manifest.txt
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
@@ -175,7 +181,7 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
           SHA256=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
           SIZE=$(stat -c '%s' TakeOff-Insights.apk)
-          NOTES=$(printf 'TakeOff Insights 0.15.3 (code 34)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nViral report fix: completed analyses now expose hook, first seconds, story, reconstructed scenario, timeline, dialogue, CTA, visual/editing/audio analysis, behavioral mechanisms, retention hypotheses, likely virality explanations, reusable patterns, evidence quality and uncertainties.\nCompatibility: report renderer walks V4, public resilient, nested legacy and stringified JSON evidence instead of hiding valid saved analysis behind a schema mismatch.\nUX: simplified Persian glassmorphism with exactly two primary jobs; analysis dialog is readable and selectable.\nLegacy companion_credential_required queue items: auto-recovered through the credential-free public evidence path.\nBackend: durable V4 Render runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPrivate Owner data: companion credential remains required.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, complete viral-report contract tests, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
+          NOTES=$(printf 'TakeOff Insights 0.15.3 (code 34)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nQA hardening: Android 13+ notification permission is requested at runtime so reminder notifications can actually appear. Viral learning queue trimming now preserves the newest completed analyses instead of the oldest, with a regression test.\nViral report fix: completed analyses expose hook, first seconds, story, reconstructed scenario, timeline, dialogue, CTA, visual/editing/audio analysis, behavioral mechanisms, retention hypotheses, likely virality explanations, reusable patterns, evidence quality and uncertainties.\nCompatibility: report renderer walks V4, public resilient, nested legacy and stringified JSON evidence instead of hiding valid saved analysis behind a schema mismatch.\nUX: simplified Persian glassmorphism with exactly two primary jobs; analysis dialog is readable and selectable.\nLegacy companion_credential_required queue items: auto-recovered through the credential-free public evidence path.\nBackend: durable V4 runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPrivate Owner data: companion credential remains required.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, complete viral-report contract tests, notification-permission and queue-retention regression gates, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
           if gh release view v0.15.3 >/dev/null 2>&1; then
             gh release upload v0.15.3 TakeOff-Insights.apk --clobber
             gh release edit v0.15.3 --title 'TakeOff Insights 0.15.3' --notes "$NOTES" --latest
