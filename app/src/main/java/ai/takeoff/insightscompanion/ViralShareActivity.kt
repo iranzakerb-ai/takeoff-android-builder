@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.animation.DecelerateInterpolator
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -25,16 +26,18 @@ class ViralShareActivity : Activity() {
         const val EXTRA_ADDED_COUNT = "added_count"
     }
 
-    private val bg0 = Color.rgb(5, 8, 15)
-    private val bg1 = Color.rgb(12, 26, 39)
-    private val glass = Color.argb(80, 255, 255, 255)
-    private val glassStrong = Color.argb(108, 255, 255, 255)
-    private val border = Color.argb(76, 255, 255, 255)
-    private val accent = Color.rgb(79, 235, 216)
-    private val muted = Color.rgb(188, 200, 214)
-    private val success = Color.rgb(102, 235, 173)
-    private val warning = Color.rgb(255, 194, 92)
-    private val danger = Color.rgb(255, 125, 145)
+    private val bg0 = Color.rgb(250, 252, 255)
+    private val bg1 = Color.rgb(243, 252, 253)
+    private val glass = Color.argb(214, 255, 255, 255)
+    private val glassStrong = Color.argb(240, 255, 255, 255)
+    private val border = Color.argb(82, 9, 24, 43)
+    private val accent = Color.rgb(16, 202, 205)
+    private val orange = Color.rgb(255, 122, 26)
+    private val ink = Color.rgb(15, 23, 35)
+    private val muted = Color.rgb(94, 108, 126)
+    private val success = Color.rgb(0, 154, 137)
+    private val warning = Color.rgb(226, 112, 18)
+    private val danger = Color.rgb(210, 63, 76)
 
     private lateinit var queue: SharedMediaQueue
     private lateinit var listHost: LinearLayout
@@ -58,8 +61,12 @@ class ViralShareActivity : Activity() {
         queue = SharedMediaQueue(this)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = bg0
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         recoverOldCredentialFailures()
         setContentView(buildUi())
+        window.decorView.rootView.alpha = 0f
+        window.decorView.rootView.translationY = dp(18).toFloat()
+        window.decorView.rootView.animate().alpha(1f).translationY(0f).setDuration(520).setInterpolator(DecelerateInterpolator()).start()
         val added = intent.getIntExtra(EXTRA_ADDED_COUNT, 0)
         if (added > 0) Toast.makeText(this, "$added ریلز وارد صف شد", Toast.LENGTH_SHORT).show()
         render()
@@ -97,7 +104,7 @@ class ViralShareActivity : Activity() {
             isFillViewport = true
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(bg0, bg1, Color.rgb(6, 13, 25)),
+                intArrayOf(bg0, bg1, Color.rgb(255, 246, 237)),
             )
         }
         val root = LinearLayout(this).apply {
@@ -107,7 +114,7 @@ class ViralShareActivity : Activity() {
         }
 
         root.addView(glassCard(strong = true).apply {
-            addView(label("یادگیری از ریلزهای وایرال", 25f, Color.WHITE, true))
+            addView(label("یادگیری از ریلزهای وایرال", 25f, ink, true))
             addView(label("از Instagram به تیک‌آف Share کن؛ سرور خود ویدیو، صدا و ساختار محتوا را تحلیل می‌کند.", 13f, muted, false).apply {
                 setPadding(0, dp(7), 0, dp(12))
             })
@@ -131,7 +138,7 @@ class ViralShareActivity : Activity() {
             text = "بستن"
             isAllCaps = false
             textSize = 13f
-            setTextColor(Color.WHITE)
+            setTextColor(ink)
             background = rounded(Color.argb(55, 255, 255, 255), 18, border)
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
@@ -153,7 +160,7 @@ class ViralShareActivity : Activity() {
     }
 
     private fun jobCard(item: SharedMediaQueue.Item): View = glassCard().apply {
-        addView(label(item.shortcode.ifBlank { "Instagram Reel" }, 17f, Color.WHITE, true))
+        addView(label(item.shortcode.ifBlank { "Instagram Reel" }, 17f, ink, true))
         addView(label(stateFa(item.status), 12.5f, stateColor(item.status), true).apply {
             setPadding(0, dp(6), 0, dp(9))
         })
@@ -175,7 +182,7 @@ class ViralShareActivity : Activity() {
         if (item.status == "completed" && result != null) {
             val quick = ViralReportFormatter.quick(result)
             if (quick.isNotBlank()) {
-                addView(label(quick, 12.5f, Color.WHITE, false).apply { setPadding(0, dp(9), 0, 0) })
+                addView(label(quick, 12.5f, ink, false).apply { setPadding(0, dp(9), 0, 0) })
             } else {
                 addView(label("تحلیل کامل ذخیره شده؛ برای دیدن جزئیات گزارش را باز کن.", 12f, muted, false).apply {
                     setPadding(0, dp(9), 0, 0)
@@ -192,7 +199,7 @@ class ViralShareActivity : Activity() {
 
     private fun showDetail(item: SharedMediaQueue.Item, root: JSONObject) {
         val report = ViralReportFormatter.full(root)
-        val body = label(report, 14f, Color.WHITE, false).apply {
+        val body = label(report, 14f, ink, false).apply {
             setTextIsSelectable(true)
             setPadding(dp(18), dp(18), dp(18), dp(24))
         }
@@ -207,7 +214,7 @@ class ViralShareActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
-            dialog.window?.setBackgroundDrawable(rounded(Color.rgb(13, 23, 34), 24, border))
+            dialog.window?.setBackgroundDrawable(rounded(Color.rgb(250, 252, 255), 24, border))
         }
         dialog.show()
     }
@@ -290,7 +297,7 @@ class ViralShareActivity : Activity() {
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(17), dp(16), dp(17), dp(16))
         background = rounded(if (strong) glassStrong else glass, 24, border)
-        elevation = dp(4).toFloat()
+        elevation = dp(6).toFloat()
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean) = TextView(this).apply {
@@ -307,9 +314,14 @@ class ViralShareActivity : Activity() {
         isAllCaps = false
         textSize = 13.5f
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(Color.rgb(4, 24, 24))
-        background = rounded(accent, 17, accent)
-        setOnClickListener { click() }
+        setTextColor(Color.WHITE)
+        background = rounded(orange, 17, orange)
+        setOnClickListener { v ->
+            v.animate().scaleX(.97f).scaleY(.97f).alpha(.82f).setDuration(80).withEndAction {
+                v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start()
+                click()
+            }.start()
+        }
     }
 
     private fun rounded(fill: Int, radius: Int, stroke: Int) = GradientDrawable().apply {
