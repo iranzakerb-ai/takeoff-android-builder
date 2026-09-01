@@ -20,11 +20,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:documentLaunchMode="never" />
+        <activity android:name=".MainActivity" android:exported="false" android:launchMode="singleTask" android:documentLaunchMode="never" />
         <activity
             android:name=".ShareEntryActivity"
             android:exported="true"
@@ -42,29 +38,21 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
         </activity>
-        <activity
-            android:name=".ViralShareActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:documentLaunchMode="never"
-            android:label="تیک‌آف — صف یادگیری V4"
-            android:theme="@style/Theme.TakeOffInsights" />
+        <activity android:name=".ViralShareActivity" android:exported="false" android:launchMode="singleTask" android:documentLaunchMode="never" android:label="تیک‌آف — صف یادگیری V4" android:theme="@style/Theme.TakeOffInsights" />
         <activity android:name=".CaptureReviewActivity" android:exported="false" android:theme="@style/Theme.TakeOffInsights" />
-        <activity
-            android:name=".ReminderArmActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
-        <activity
-            android:name=".CaptureTriggerActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:taskAffinity="ai.takeoff.insightscompanion.capture"
-            android:finishOnTaskLaunch="true"
-            android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
+        <activity android:name=".ReminderArmActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
+        <activity android:name=".CaptureTriggerActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="ai.takeoff.insightscompanion.capture" android:finishOnTaskLaunch="true" android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
         <service android:name=".CaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />
     </application>
 </manifest>
