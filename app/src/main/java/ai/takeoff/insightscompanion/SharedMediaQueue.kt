@@ -16,6 +16,8 @@ class SharedMediaQueue(context: Context) {
         val stage: String,
         val progress: Int,
         val mediaKind: String,
+        val localMediaPath: String?,
+        val localMediaMime: String?,
         val jobId: String?,
         val pollToken: String?,
         val evidenceId: String?,
@@ -62,6 +64,17 @@ class SharedMediaQueue(context: Context) {
             }
             return keep
         }
+
+        internal fun evidenceIsVideoBacked(root: JSONObject): Boolean {
+            val evidence = root.optJSONObject("evidence_quality")
+            if (evidence?.has("video_analyzed") == true) return evidence.optBoolean("video_analyzed", false)
+            val mode = root.optString("analysis_mode")
+            if ("multimodal" in mode || "device_capture" in mode || "video" in mode && "metadata_only" !in mode) return true
+            val status = root.optString("status")
+            if (status == "partial") return false
+            val privateStatus = root.optJSONObject("estimated_private_metrics")?.optString("status").orEmpty()
+            return privateStatus != "insufficient_video_evidence" && root.optString("reason") != "public_web_media_url_unavailable"
+        }
     }
 
     private val secret = SecretStore(context.applicationContext)
@@ -71,7 +84,7 @@ class SharedMediaQueue(context: Context) {
         val arr = read()
         for (i in 0 until arr.length()) {
             val current = arr.optJSONObject(i) ?: continue
-            if (current.optString("url") == canonical && current.optString("status") in setOf("queued", "submitting", "processing")) {
+            if (current.optString("url") == canonical && current.optString("status") in setOf("queued", "submitting", "processing", "partial", "needs_media")) {
                 return@synchronized parse(current)
             }
         }
@@ -124,12 +137,20 @@ class SharedMediaQueue(context: Context) {
         null
     }
 
-    /**
-     * v0.15.0 could dead-letter public Instagram shares when a Companion credential
-     * was absent. Public viral learning no longer requires that credential. On upgrade,
-     * automatically revive only those obsolete credential failures and clear any stale
-     * server token so the item is re-submitted through the public path.
-     */
+    fun attachLocalMedia(localId: String, path: String, mime: String?): Item? = mutate(localId) { obj ->
+        obj.put("local_media_path", path)
+        obj.put("local_media_mime", mime ?: "video/mp4")
+        obj.put("media_kind", "reel")
+        obj.put("status", "queued")
+        obj.put("stage", "media_ready")
+        obj.put("progress", maxOf(18, obj.optInt("progress", 0)))
+        obj.remove("error")
+        obj.remove("job_id")
+        obj.remove("poll_token")
+    }
+
+    fun newestAwaitingMedia(): Item? = all().firstOrNull { it.status in setOf("needs_media", "partial", "failed") || it.stage == "media_required" }
+
     fun recoverLegacyCredentialFailures(): List<Item> = synchronized(LOCK) {
         val arr = read()
         val recovered = mutableListOf<Item>()
@@ -139,20 +160,10 @@ class SharedMediaQueue(context: Context) {
             val status = obj.optString("status")
             if (status !in setOf("failed", "dead_letter")) continue
             val error = obj.optString("error").lowercase()
-            val obsoleteCredentialFailure = listOf(
-                "companion_credential_required",
-                "invalid companion key",
-                "master companion key required",
-                "http 401",
-                "401 unauthorized",
-            ).any { it in error }
+            val obsoleteCredentialFailure = listOf("companion_credential_required", "invalid companion key", "master companion key required", "http 401", "401 unauthorized").any { it in error }
             if (!obsoleteCredentialFailure) continue
-            obj.put("status", "queued")
-            obj.put("stage", "queued")
-            obj.put("progress", 0)
-            obj.remove("error")
-            obj.remove("job_id")
-            obj.remove("poll_token")
+            obj.put("status", "queued").put("stage", "queued").put("progress", 0)
+            obj.remove("error"); obj.remove("job_id"); obj.remove("poll_token")
             obj.put("updated_at", System.currentTimeMillis())
             recovered += parse(obj)
             changed = true
@@ -187,13 +198,19 @@ class SharedMediaQueue(context: Context) {
     }
 
     fun completeWithEvidence(localId: String, evidence: JSONObject): Item? = mutate(localId) { obj ->
-        obj.put("status", "completed")
-        obj.put("stage", "completed")
-        obj.put("progress", 100)
+        obj.put("status", "completed").put("stage", "completed").put("progress", 100)
         obj.put("result_json", evidence.toString())
         evidence.optString("evidence_id").takeIf { it.isNotBlank() }?.let { obj.put("evidence_id", it) }
         evidence.optString("media_kind").takeIf { it.isNotBlank() }?.let { obj.put("media_kind", it) }
         obj.remove("error")
+    }
+
+    fun markNeedsMedia(localId: String, evidence: JSONObject?, reason: String = "public_web_media_url_unavailable"): Item? = mutate(localId) { obj ->
+        obj.put("status", "needs_media")
+        obj.put("stage", "media_required")
+        obj.put("progress", 22)
+        obj.put("error", reason.take(180))
+        if (evidence != null) obj.put("result_json", evidence.toString())
     }
 
     fun fail(localId: String, error: String, terminal: Boolean): Item? = mutate(localId) { obj ->
@@ -203,18 +220,12 @@ class SharedMediaQueue(context: Context) {
     }
 
     fun retry(localId: String): Item? = mutate(localId) { obj ->
-        obj.put("status", "queued")
-        obj.put("stage", "queued")
-        obj.put("progress", 0)
+        obj.put("status", "queued").put("stage", "queued").put("progress", 0)
         obj.remove("error")
-        if (obj.optString("job_id").startsWith("cached:")) {
-            obj.remove("job_id"); obj.remove("poll_token")
-        }
+        if (obj.optString("job_id").startsWith("cached:")) { obj.remove("job_id"); obj.remove("poll_token") }
     }
 
-    fun trimCompleted(maxCompleted: Int = 120) = synchronized(LOCK) {
-        write(trimCompletedItems(read(), maxCompleted))
-    }
+    fun trimCompleted(maxCompleted: Int = 120) = synchronized(LOCK) { write(trimCompletedItems(read(), maxCompleted)) }
 
     private fun parse(obj: JSONObject) = Item(
         localId = obj.optString("local_id"),
@@ -226,14 +237,14 @@ class SharedMediaQueue(context: Context) {
         stage = obj.optString("stage", "queued"),
         progress = obj.optInt("progress", 0).coerceIn(0, 100),
         mediaKind = obj.optString("media_kind", "unknown"),
+        localMediaPath = obj.optString("local_media_path").takeIf { it.isNotBlank() },
+        localMediaMime = obj.optString("local_media_mime").takeIf { it.isNotBlank() },
         jobId = obj.optString("job_id").takeIf { it.isNotBlank() },
         pollToken = obj.optString("poll_token").takeIf { it.isNotBlank() },
         evidenceId = obj.optString("evidence_id").takeIf { it.isNotBlank() },
         error = obj.optString("error").takeIf { it.isNotBlank() },
         resultJson = obj.optString("result_json").takeIf { it.isNotBlank() },
-        createdAt = obj.optLong("created_at"),
-        updatedAt = obj.optLong("updated_at"),
-        lane = obj.optInt("lane", 0).coerceIn(0, 2),
+        createdAt = obj.optLong("created_at"), updatedAt = obj.optLong("updated_at"), lane = obj.optInt("lane", 0).coerceIn(0, 2),
     )
 
     private fun read(): JSONArray = runCatching { JSONArray(secret.get(KEY) ?: "[]") }.getOrElse { JSONArray() }
