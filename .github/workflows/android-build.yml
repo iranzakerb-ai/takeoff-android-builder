@@ -51,9 +51,22 @@ jobs:
           # The primary UX must expose the two user jobs, not an engineering console.
           grep -q 'ثبت آمار ریلزهای خودمان' "$SRC/GlassHomeActivity.kt"
           grep -q 'ریلز میلیونی را Share کن' "$SRC/GlassHomeActivity.kt"
-          grep -q 'دو کار. یک حلقه یادگیری.' "$SRC/GlassHomeActivity.kt"
+          grep -q 'هوشمندتر تحلیل کن، قوی‌تر محتوا بساز' "$SRC/GlassHomeActivity.kt"
           ! grep -q 'V4 LEARNING CONSOLE' "$SRC/GlassHomeActivity.kt"
           grep -q 'یادگیری از ریلزهای وایرال' "$SRC/ViralShareActivity.kt"
+
+          # Approved Glass Motion visual contract: white first, then orange, teal, navy.
+          grep -q 'private val white = Color.rgb(250, 252, 255)' "$SRC/GlassHomeActivity.kt"
+          grep -q 'private val orange = Color.rgb(255, 122, 26)' "$SRC/GlassHomeActivity.kt"
+          grep -q 'private val teal = Color.rgb(16, 202, 205)' "$SRC/GlassHomeActivity.kt"
+          grep -q 'private val navy = Color.rgb(9, 24, 43)' "$SRC/GlassHomeActivity.kt"
+          grep -q 'playEntrance' "$SRC/GlassHomeActivity.kt"
+          grep -q 'overridePendingTransition' "$SRC/GlassHomeActivity.kt"
+          grep -q 'private val primary = Color.rgb(255, 122, 26)' "$SRC/MainActivity.kt"
+          grep -q 'private val accent = Color.rgb(16, 202, 205)' "$SRC/MainActivity.kt"
+          grep -q 'DecelerateInterpolator' "$SRC/MainActivity.kt"
+          grep -q 'private val orange = Color.rgb(255, 122, 26)' "$SRC/ViralShareActivity.kt"
+          grep -q 'private val primary = Color.rgb(255, 122, 26)' "$SRC/CaptureReviewActivity.kt"
 
           # A completed viral analysis must actually be readable by the owner.
           test -s "$SRC/ViralReportFormatter.kt"
@@ -181,7 +194,7 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
           SHA256=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
           SIZE=$(stat -c '%s' TakeOff-Insights.apk)
-          NOTES=$(printf 'TakeOff Insights 0.15.3 (code 34)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nQA hardening: Android 13+ notification permission is requested at runtime so reminder notifications can actually appear. Viral learning queue trimming now preserves the newest completed analyses instead of the oldest, with a regression test.\nViral report fix: completed analyses expose hook, first seconds, story, reconstructed scenario, timeline, dialogue, CTA, visual/editing/audio analysis, behavioral mechanisms, retention hypotheses, likely virality explanations, reusable patterns, evidence quality and uncertainties.\nCompatibility: report renderer walks V4, public resilient, nested legacy and stringified JSON evidence instead of hiding valid saved analysis behind a schema mismatch.\nUX: simplified Persian glassmorphism with exactly two primary jobs; analysis dialog is readable and selectable.\nLegacy companion_credential_required queue items: auto-recovered through the credential-free public evidence path.\nBackend: durable V4 runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPrivate Owner data: companion credential remains required.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, complete viral-report contract tests, notification-permission and queue-retention regression gates, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
+          NOTES=$(printf 'TakeOff Insights 0.15.3 (code 34)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nUI: approved light Glass Motion system across primary screens with white-first surfaces, orange primary actions, teal secondary accents, navy text, fade/slide transitions and press micro-interactions.\nQA hardening: Android 13+ notification permission is requested at runtime so reminder notifications can actually appear. Viral learning queue trimming preserves the newest completed analyses, with a regression test.\nViral report: completed analyses expose hook, first seconds, story, reconstructed scenario, timeline, dialogue, CTA, visual/editing/audio analysis, behavioral mechanisms, retention hypotheses, likely virality explanations, reusable patterns, evidence quality and uncertainties.\nPrivate Owner data: companion credential remains required.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, Glass Motion design contract, viral-report contract tests, notification-permission and queue-retention regression gates, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
           if gh release view v0.15.3 >/dev/null 2>&1; then
             gh release upload v0.15.3 TakeOff-Insights.apk --clobber
             gh release edit v0.15.3 --title 'TakeOff Insights 0.15.3' --notes "$NOTES" --latest
