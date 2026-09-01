@@ -1,4 +1,4 @@
-name: TakeOff Android v0.15.2 DADSTAN Release Gate
+name: TakeOff Android v0.15.3 DADSTAN Release Gate
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: takeoff-android-v0152-${{ github.ref }}
+  group: takeoff-android-v0153-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,8 +35,8 @@ jobs:
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
 
           # Release identity
-          grep -q 'versionCode = 33' app/build.gradle.kts
-          grep -q 'versionName = "0.15.2"' app/build.gradle.kts
+          grep -q 'versionCode = 34' app/build.gradle.kts
+          grep -q 'versionName = "0.15.3"' app/build.gradle.kts
 
           # Product constitution is mandatory and must preserve both learning loops.
           test -s PRODUCT_CONSTITUTION.md
@@ -53,6 +53,17 @@ jobs:
           grep -q 'دو کار. یک حلقه یادگیری.' "$SRC/GlassHomeActivity.kt"
           ! grep -q 'V4 LEARNING CONSOLE' "$SRC/GlassHomeActivity.kt"
           grep -q 'یادگیری از ریلزهای وایرال' "$SRC/ViralShareActivity.kt"
+
+          # A completed viral analysis must actually be readable by the owner.
+          test -s "$SRC/ViralReportFormatter.kt"
+          grep -q 'هوک / قلاب' "$SRC/ViralReportFormatter.kt"
+          grep -q 'سناریوی بازسازی‌شده' "$SRC/ViralReportFormatter.kt"
+          grep -q 'داستان و ساختار روایی' "$SRC/ViralReportFormatter.kt"
+          grep -q 'دیالوگ و متن' "$SRC/ViralReportFormatter.kt"
+          grep -q 'چرا احتمالاً وایرال شده' "$SRC/ViralReportFormatter.kt"
+          grep -q 'الگوهای قابل استفاده دوباره' "$SRC/ViralReportFormatter.kt"
+          grep -q 'ViralReportFormatter.full' "$SRC/ViralShareActivity.kt"
+          test -s app/src/test/java/ai/takeoff/insightscompanion/ViralReportFormatterTest.kt
 
           # Owner/edge and public viral runtime are intentionally separated.
           grep -q 'https://takeoff-seven-puce.vercel.app' "$SRC/PayloadClient.kt"
@@ -90,7 +101,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json, urllib.request
-          req=urllib.request.Request('https://takeoff-virality-engine.onrender.com/v4/media-jobs/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.15.2'})
+          req=urllib.request.Request('https://takeoff-virality-engine.onrender.com/v4/media-jobs/health',headers={'Accept':'application/json','User-Agent':'TakeOff-DADSTAN/0.15.3'})
           with urllib.request.urlopen(req,timeout=45) as r:
               body=json.loads(r.read().decode())
           assert body.get('ok') is True, body
@@ -132,7 +143,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='33' versionName='0.15.2'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='34' versionName='0.15.3'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'GlassHomeActivity' apk-manifest.txt
@@ -142,14 +153,14 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-v0.15.2.apk
+          cp "$APK" TakeOff-Insights-v0.15.3.apk
 
       - name: Upload validated APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-v0.15.2
-          path: TakeOff-Insights-v0.15.2.apk
+          name: TakeOff-Insights-v0.15.3
+          path: TakeOff-Insights-v0.15.3.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -163,10 +174,10 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk TakeOff-Insights.apk
           SHA256=$(sha256sum TakeOff-Insights.apk | awk '{print $1}')
           SIZE=$(stat -c '%s' TakeOff-Insights.apk)
-          NOTES=$(printf 'TakeOff Insights 0.15.2 (code 33)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nUX: simplified Persian glassmorphism with exactly two primary jobs.\nLegacy companion_credential_required queue items: auto-recovered and resubmitted through credential-free public evidence path.\nBackend: durable V4 Render runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPublic Instagram learning: credential-free public evidence path.\nPrivate Owner data: companion credential remains required.\nSupported learning: Reel, video post, photo, carousel, mixed.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
-          if gh release view v0.15.2 >/dev/null 2>&1; then
-            gh release upload v0.15.2 TakeOff-Insights.apk --clobber
-            gh release edit v0.15.2 --title 'TakeOff Insights 0.15.2' --notes "$NOTES" --latest
+          NOTES=$(printf 'TakeOff Insights 0.15.3 (code 34)\n\nMission lock: (1) Owner Outcome capture as Meta API substitute; (2) public viral-Reel learning.\nViral report fix: completed analyses now expose hook, first seconds, story, reconstructed scenario, timeline, dialogue, CTA, visual/editing/audio analysis, behavioral mechanisms, retention hypotheses, likely virality explanations, reusable patterns, evidence quality and uncertainties.\nCompatibility: report renderer walks V4, public resilient, nested legacy and stringified JSON evidence instead of hiding valid saved analysis behind a schema mismatch.\nUX: simplified Persian glassmorphism with exactly two primary jobs; analysis dialog is readable and selectable.\nLegacy companion_credential_required queue items: auto-recovered through the credential-free public evidence path.\nBackend: durable V4 Render runtime + Vercel owner/edge path + Gemini + Apify + durable Postgres store.\nPrivate Owner data: companion credential remains required.\nNorth star: improve million-view performance; no guaranteed reach claim.\nSHA-256: %s\nSize: %s bytes\n\nDADSTAN PASS requires: two-mission constitution gate, complete viral-report contract tests, source/security gate, live durable V4 health, unit tests, lint, clean build, ZIP integrity, APK signature, package/version, GlassHome launcher, SEND + SEND_MULTIPLE, and no RECORD_AUDIO.' "$SHA256" "$SIZE")
+          if gh release view v0.15.3 >/dev/null 2>&1; then
+            gh release upload v0.15.3 TakeOff-Insights.apk --clobber
+            gh release edit v0.15.3 --title 'TakeOff Insights 0.15.3' --notes "$NOTES" --latest
           else
-            gh release create v0.15.2 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.15.2' --notes "$NOTES" --latest
+            gh release create v0.15.3 TakeOff-Insights.apk --target "$GITHUB_SHA" --title 'TakeOff Insights 0.15.3' --notes "$NOTES" --latest
           fi
