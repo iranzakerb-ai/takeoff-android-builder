@@ -2,19 +2,38 @@ package ai.takeoff.insightscompanion
 
 import android.content.Context
 import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
+class SharedMediaRecoveryWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
+    override suspend fun doWork(): Result {
+        val localId = inputData.getString("local_id").orEmpty()
+        val item = SharedMediaQueue(applicationContext).get(localId) ?: return Result.success()
+        if (item.status !in setOf("completed", "dead_letter")) SharedMediaWork.enqueue(applicationContext, item)
+        return Result.success()
+    }
+}
+
 class SharedMediaWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
+    companion object {
+        // The expensive multimodal provider is intentionally single-flight on one
+        // phone process. Resolve/download stages of other jobs remain independent.
+        private val AI_ANALYSIS_GATE = Semaphore(1, true)
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val localId = inputData.getString("local_id").orEmpty()
         if (localId.isBlank()) return@withContext Result.failure()
@@ -26,58 +45,94 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
         val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty())
         val companionKey = SecretStore(applicationContext).get("api_key").orEmpty()
 
-        // Highest-fidelity path first: if Android actually received a video stream and
-        // this installation is paired, analyze those real bytes instead of re-fetching Instagram.
+        // Preserve the highest-fidelity direct-upload path when Android actually
+        // received the Reel bytes and this installation has a paired credential.
         val mediaPath = item.localMediaPath
         if (!mediaPath.isNullOrBlank() && companionKey.isNotBlank()) {
             val file = File(mediaPath)
-            if (file.isFile && file.length() > 0L) {
-                return@withContext processDirectMedia(queue, item, endpoint, companionKey, file)
-            }
+            if (file.isFile && file.length() > 0L) return@withContext processDirectMedia(queue, item, endpoint, companionKey, file)
         }
-
-        // URL-only public shares remain usable without Owner credentials. The server
-        // now has layered public/direct/provider resolution, but metadata-only results
-        // are never promoted to learned/completed on the phone.
-        if (companionKey.isBlank()) return@withContext processPublicFallback(queue, item, endpoint)
 
         try {
             if (item.jobId.isNullOrBlank()) {
-                queue.mutate(localId) { it.put("status", "submitting").put("stage", "submitting").put("progress", 4) }
+                queue.mutate(localId) { it.put("status", "submitting").put("stage", "submitting").put("progress", 1) }
                 val start = SharedMediaClient.start(endpoint, item.url, item.niche, item.accountId, true, companionKey)
                 if (start.code !in 200..299 || start.body == null) {
                     val terminal = start.code in 400..499 && start.code !in listOf(408, 425, 429)
                     queue.fail(localId, "HTTP ${start.code}: ${safeDetail(start.raw, start.body)}", terminal)
-                    return@withContext if (terminal) Result.success() else Result.retry()
+                    if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                    return@withContext Result.success()
                 }
                 item = queue.attachServerJob(localId, start.body) ?: return@withContext Result.success()
             }
 
-            item = queue.get(localId) ?: return@withContext Result.success()
-            val jobId = item.jobId.orEmpty(); val token = item.pollToken.orEmpty()
-            if (jobId.isBlank() || token.isBlank()) {
-                queue.fail(localId, "server_job_token_missing", true)
-                return@withContext Result.success()
-            }
+            SharedMediaWork.scheduleWatchdog(applicationContext, item)
+            queue.mutate(localId) { it.put("status", "processing").put("progress", maxOf(2, it.optInt("progress", 0))) }
 
-            queue.mutate(localId) { it.put("status", "processing").put("progress", maxOf(8, it.optInt("progress", 0))) }
-            val processed = SharedMediaClient.process(endpoint, jobId, token, companionKey)
-            if (processed.code !in 200..299 || processed.body == null) {
-                val terminal = processed.code in 400..499 && processed.code !in listOf(408, 409, 425, 429)
-                queue.fail(localId, "HTTP ${processed.code}: ${safeDetail(processed.raw, processed.body)}", terminal)
-                return@withContext if (terminal || runAttemptCount >= 5) Result.success() else Result.retry()
-            }
+            var steps = 0
+            while (steps < 6) {
+                item = queue.get(localId) ?: return@withContext Result.success()
+                val jobId = item.jobId.orEmpty()
+                val token = item.pollToken.orEmpty()
+                if (jobId.isBlank() || token.isBlank()) {
+                    queue.fail(localId, "server_job_token_missing", true)
+                    return@withContext Result.success()
+                }
 
-            val updated = queue.updateServerState(localId, processed.body)
-            return@withContext when (updated?.status) {
-                "completed", "dead_letter", "needs_media", "partial" -> Result.success()
-                "failed" -> if (runAttemptCount >= 5) Result.success() else Result.retry()
-                null -> Result.success()
-                else -> { SharedMediaWork.enqueueContinuation(applicationContext, updated); Result.success() }
+                val needsAiGate = item.stage in setOf("visual_hook_analysis", "deep_analysis") || item.progress in 45..89
+                val processed = if (needsAiGate) {
+                    AI_ANALYSIS_GATE.acquire()
+                    try { SharedMediaClient.process(endpoint, jobId, token, companionKey) }
+                    finally { AI_ANALYSIS_GATE.release() }
+                } else SharedMediaClient.process(endpoint, jobId, token, companionKey)
+
+                if (processed.code !in 200..299 || processed.body == null) {
+                    val detail = safeDetail(processed.raw, processed.body)
+                    val expired = processed.code == 401 && (
+                        detail.contains("invalid_or_expired_poll_token") ||
+                        detail.contains("job_token_mismatch") ||
+                        detail.contains("invalid_or_expired_media_job_token")
+                    )
+                    if (expired) {
+                        val recovered = queue.restartExpiredServerJob(localId)
+                        if (recovered?.status == "queued") SharedMediaWork.enqueueContinuation(applicationContext, recovered, 1)
+                        else queue.fail(localId, "token_restart_exhausted", true)
+                        return@withContext Result.success()
+                    }
+                    if (processed.code in 500..599 || processed.code in listOf(408, 425, 429)) {
+                        val wait = processed.body?.optInt("retry_after_seconds", 15)?.coerceIn(5, 90) ?: 15
+                        queue.markTransient(localId, "HTTP ${processed.code}: $detail")
+                        queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, wait) }
+                        return@withContext Result.success()
+                    }
+                    val terminal = processed.code in 400..499
+                    queue.fail(localId, "HTTP ${processed.code}: $detail", terminal)
+                    if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                    return@withContext Result.success()
+                }
+
+                val updated = queue.updateServerState(localId, processed.body)
+                when (updated?.status) {
+                    "completed", "dead_letter", "needs_media", "partial" -> {
+                        SharedMediaWork.cancelWatchdog(applicationContext, localId)
+                        return@withContext Result.success()
+                    }
+                    null -> return@withContext Result.success()
+                }
+                if (processed.body.optBoolean("retryable", false)) {
+                    val wait = processed.body.optInt("retry_after_seconds", 8).coerceIn(5, 90)
+                    queue.markTransient(localId, processed.body.optString("error_code", "provider_backoff"))
+                    SharedMediaWork.enqueueContinuation(applicationContext, queue.get(localId) ?: updated, wait)
+                    return@withContext Result.success()
+                }
+                steps++
             }
+            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 1) }
+            Result.success()
         } catch (error: Exception) {
-            queue.fail(localId, error.javaClass.simpleName, runAttemptCount >= 5)
-            return@withContext if (runAttemptCount >= 5) Result.success() else Result.retry()
+            queue.markTransient(localId, error.javaClass.simpleName)
+            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+            Result.success()
         }
     }
 
@@ -88,14 +143,17 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
             val response = SharedMediaClient.uploadDirectMedia(endpoint, item.url, item.niche, file, item.localMediaMime, companionKey)
             if (response.code !in 200..299 || response.body == null) {
                 val terminal = response.code in 400..499 && response.code !in listOf(408, 425, 429)
-                queue.fail(localId, "HTTP ${response.code}: ${safeDetail(response.raw, response.body)}", terminal)
-                if (terminal || runAttemptCount >= 4) Result.success() else Result.retry()
+                if (terminal) queue.fail(localId, "HTTP ${response.code}: ${safeDetail(response.raw, response.body)}", true)
+                else {
+                    queue.markTransient(localId, "HTTP ${response.code}: ${safeDetail(response.raw, response.body)}")
+                    queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                }
+                Result.success()
             } else {
                 val root = response.body
                 val evidence = root.optJSONObject("report") ?: root.optJSONObject("result") ?: root
-                if (!SharedMediaQueue.evidenceIsVideoBacked(evidence)) {
-                    queue.markNeedsMedia(localId, evidence, "direct_media_analysis_insufficient")
-                } else {
+                if (!SharedMediaQueue.evidenceIsVideoBacked(evidence)) queue.markNeedsMedia(localId, evidence, "direct_media_analysis_insufficient")
+                else {
                     queue.mutate(localId) { it.put("stage", "learning_persist").put("progress", 92) }
                     queue.completeWithEvidence(localId, evidence)
                     runCatching { file.delete() }
@@ -103,59 +161,58 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                 Result.success()
             }
         } catch (error: Exception) {
-            queue.fail(localId, error.javaClass.simpleName, runAttemptCount >= 4)
-            if (runAttemptCount >= 4) Result.success() else Result.retry()
-        }
-    }
-
-    private fun processPublicFallback(queue: SharedMediaQueue, item: SharedMediaQueue.Item, endpoint: String): Result {
-        val localId = item.localId
-        return try {
-            queue.mutate(localId) { it.put("status", "processing").put("stage", "media_fetch").put("progress", 18).remove("error") }
-            val response = PayloadClient.postViralEvidence(endpoint, "", item.url, item.niche)
-            if (response.first !in 200..299) {
-                val root = runCatching { JSONObject(response.second) }.getOrNull()
-                val detail = root?.optString("detail").orEmpty().ifBlank { root?.optString("error_code").orEmpty() }
-                val terminal = response.first in 400..499 && response.first !in listOf(408, 425, 429)
-                queue.fail(localId, "HTTP ${response.first}: ${detail.take(100).ifBlank { "server_error" }}", terminal)
-                if (terminal || runAttemptCount >= 5) Result.success() else Result.retry()
-            } else {
-                val root = runCatching { JSONObject(response.second) }.getOrNull() ?: throw IllegalStateException("invalid_public_analysis_response")
-                val evidence = root.optJSONObject("result") ?: root.optJSONObject("report") ?: root
-                val backendStatus = root.optString("status").ifBlank { evidence.optString("status") }
-                val videoBacked = SharedMediaQueue.evidenceIsVideoBacked(evidence)
-                if (backendStatus == "partial" || !videoBacked) {
-                    val reason = evidence.optJSONObject("evidence_quality")?.optString("reason").orEmpty().ifBlank { "public_web_media_url_unavailable" }
-                    queue.markNeedsMedia(localId, evidence, reason)
-                } else {
-                    queue.mutate(localId) { it.put("stage", "learning_persist").put("progress", 94) }
-                    queue.completeWithEvidence(localId, evidence)
-                }
-                Result.success()
-            }
-        } catch (error: Exception) {
-            queue.fail(localId, error.javaClass.simpleName, runAttemptCount >= 5)
-            if (runAttemptCount >= 5) Result.success() else Result.retry()
+            queue.markTransient(localId, error.javaClass.simpleName)
+            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+            Result.success()
         }
     }
 
     private fun safeDetail(raw: String, body: JSONObject?): String {
         val root = body ?: runCatching { JSONObject(raw) }.getOrNull()
-        val detail = root?.optString("detail").orEmpty().ifBlank { root?.optString("error_code").orEmpty() }
-        return detail.take(100).ifBlank { "server_error" }
+        return root?.optString("detail").orEmpty().ifBlank { root?.optString("error_code").orEmpty() }.take(100).ifBlank { "server_error" }
     }
 }
 
 object SharedMediaWork {
-    private const val LANES = 3
-    private fun request(item: SharedMediaQueue.Item) = OneTimeWorkRequestBuilder<SharedMediaWorker>()
+    private val connected = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+    private fun request(item: SharedMediaQueue.Item, delaySeconds: Int = 0): androidx.work.OneTimeWorkRequest {
+        val builder = OneTimeWorkRequestBuilder<SharedMediaWorker>()
+            .setInputData(Data.Builder().putString("local_id", item.localId).build())
+            .setConstraints(connected)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+            .addTag("takeoff-v4-media").addTag("takeoff-v4-media-${item.localId}")
+        if (delaySeconds > 0) builder.setInitialDelay(delaySeconds.toLong(), TimeUnit.SECONDS)
+        else builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        return builder.build()
+    }
+
+    private fun watchdogRequest(item: SharedMediaQueue.Item) = OneTimeWorkRequestBuilder<SharedMediaRecoveryWorker>()
         .setInputData(Data.Builder().putString("local_id", item.localId).build())
-        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
-        .addTag("takeoff-v4-media").addTag("takeoff-v4-media-${item.localId}").build()
+        .setConstraints(connected).setInitialDelay(90, TimeUnit.SECONDS)
+        .addTag("takeoff-v4-watchdog").addTag("takeoff-v4-watchdog-${item.localId}").build()
 
     fun enqueue(context: Context, item: SharedMediaQueue.Item) {
-        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork("takeoff-v4-media-lane-${item.lane.coerceIn(0, LANES - 1)}", ExistingWorkPolicy.APPEND_OR_REPLACE, request(item))
+        if (item.status in setOf("completed", "dead_letter")) return
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            "takeoff-v4-media-${item.localId}", ExistingWorkPolicy.KEEP, request(item),
+        )
     }
-    fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item) = enqueue(context, item)
+
+    fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item, delaySeconds: Int = 0) {
+        if (item.status in setOf("completed", "dead_letter")) return
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            "takeoff-v4-media-${item.localId}", ExistingWorkPolicy.APPEND_OR_REPLACE, request(item, delaySeconds),
+        )
+    }
+
+    fun revive(context: Context, item: SharedMediaQueue.Item) {
+        if (item.status !in setOf("completed", "dead_letter")) { enqueue(context, item); scheduleWatchdog(context, item) }
+    }
+    fun scheduleWatchdog(context: Context, item: SharedMediaQueue.Item) {
+        if (item.status in setOf("completed", "dead_letter")) return
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork("takeoff-v4-watchdog-${item.localId}", ExistingWorkPolicy.REPLACE, watchdogRequest(item))
+    }
+    fun cancelWatchdog(context: Context, localId: String) { WorkManager.getInstance(context.applicationContext).cancelUniqueWork("takeoff-v4-watchdog-$localId") }
     fun retry(context: Context, localId: String) { SharedMediaQueue(context).retry(localId)?.let { enqueue(context, it) } }
 }
