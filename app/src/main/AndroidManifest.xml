@@ -20,6 +20,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ScenarioStudioActivity" android:exported="false" android:label="تیک‌آف — استودیو سناریو" android:theme="@style/Theme.TakeOffInsights" />
+        <activity android:name=".AiVideoStudioActivity" android:exported="false" android:label="تیک‌آف — استودیوی ویدیوی AI" android:theme="@style/Theme.TakeOffInsights" />
         <activity android:name=".MainActivity" android:exported="false" android:launchMode="singleTask" android:documentLaunchMode="never" />
         <activity
             android:name=".ShareEntryActivity"
@@ -49,7 +51,7 @@
                 <data android:mimeType="video/*" />
             </intent-filter>
         </activity>
-        <activity android:name=".ViralShareActivity" android:exported="false" android:launchMode="singleTask" android:documentLaunchMode="never" android:label="تیک‌آف — صف یادگیری V4" android:theme="@style/Theme.TakeOffInsights" />
+        <activity android:name=".ViralShareActivity" android:exported="false" android:launchMode="singleTask" android:documentLaunchMode="never" android:label="تیک‌آف — صف تحلیل" android:theme="@style/Theme.TakeOffInsights" />
         <activity android:name=".CaptureReviewActivity" android:exported="false" android:theme="@style/Theme.TakeOffInsights" />
         <activity android:name=".ReminderArmActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
         <activity android:name=".CaptureTriggerActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="ai.takeoff.insightscompanion.capture" android:finishOnTaskLaunch="true" android:theme="@style/Theme.TakeOffInsights.CaptureTrigger" />
