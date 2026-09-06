@@ -10,10 +10,12 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONArray
@@ -27,19 +29,14 @@ class ScenarioStudioActivity : Activity() {
     private val muted = Color.rgb(94, 108, 126)
     private val orange = Color.rgb(255, 122, 26)
     private val teal = Color.rgb(16, 202, 205)
-    private val lightTeal = Color.rgb(228, 246, 246)
-    private val lightGray = Color.rgb(240, 244, 248)
 
     private lateinit var niche: EditText
     private lateinit var description: EditText
     private lateinit var audience: EditText
+    private lateinit var modeSpinner: Spinner
     private lateinit var status: TextView
     private lateinit var results: LinearLayout
     private lateinit var button: Button
-    private lateinit var tabSmart: TextView
-    private lateinit var tabShort15s: TextView
-    private lateinit var modeDescription: TextView
-    private var selectedMode = "smart"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +53,6 @@ class ScenarioStudioActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(18), dp(22), dp(18), dp(32))
         }
-
         root.addView(TextView(this).apply {
             text = "?  ??????? ??????"
             textSize = 27f
@@ -64,56 +60,53 @@ class ScenarioStudioActivity : Activity() {
             setTextColor(ink)
             setOnClickListener { finish() }
         })
-
         root.addView(TextView(this).apply {
             text = "???? ?? ??????? ????? ??? ?? ??? TakeOff"
             textSize = 12.5f
             setTextColor(muted)
-            setPadding(0, dp(6), 0, dp(14))
+            setPadding(0, dp(6), 0, dp(18))
         })
-
-        // 2-Mode Selector Tab Bar
-        val tabsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = rounded(lightGray, 14, Color.rgb(225, 232, 240))
-        }
-
-        tabSmart = TextView(this).apply {
-            text = "???? ?????? ????????? ??????"
-            textSize = 11.5f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            setOnClickListener { setMode("smart") }
-        }
-
-        tabShort15s = TextView(this).apply {
-            text = "???? ?????? ????? ?? ????????"
-            textSize = 11.5f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            setOnClickListener { setMode("short_15s") }
-        }
-
-        tabsContainer.addView(tabSmart, LinearLayout.LayoutParams(0, -2, 1f))
-        tabsContainer.addView(tabShort15s, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(tabsContainer, margin(10))
-
-        modeDescription = TextView(this).apply {
-            textSize = 11.5f
-            setTextColor(muted)
-            setPadding(dp(4), 0, dp(4), dp(12))
-        }
-        root.addView(modeDescription)
 
         niche = field("???? ???? *", "????? ??????? ????? ?????? ??????", 2)
         description = field("????? ???????? *", "?????? ?????? ??????? ? ?? ???? ?? ???????", 4)
         audience = field("????? ???", "???????? ??? ???? ???? ?????? ????? ??????", 2)
         listOf(niche, description, audience).forEach { root.addView(it, margin(10)) }
 
+        root.addView(TextView(this).apply {
+            text = "???? ??????????:"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(ink)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        })
+        modeSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@ScenarioStudioActivity, android.R.layout.simple_spinner_dropdown_item, listOf("???? ?????? ????????? ??????", "???? ?????? ????? ?? ????????"))
+            setSelection(0)
+            background = rounded(Color.WHITE, 16, Color.rgb(225, 231, 238))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        root.addView(modeSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(12) })
+
+        root.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(13), dp(15), dp(13))
+            background = rounded(Color.WHITE, 20, Color.rgb(225, 232, 239))
+            addView(TextView(this@ScenarioStudioActivity).apply {
+                text = "??? ??? ???"
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(teal)
+            })
+            addView(TextView(this@ScenarioStudioActivity).apply {
+                text = "??? ???? ???? ?? ??????? ??????/????? ??? ??? ? ?? AI Video Studio ?????."
+                textSize = 11.5f
+                setTextColor(muted)
+                setPadding(0, dp(6), 0, 0)
+            })
+        }, margin(12))
+
         button = Button(this).apply {
+            text = "???? ?? ??????? ????? ???"
             isAllCaps = false
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
@@ -122,42 +115,19 @@ class ScenarioStudioActivity : Activity() {
             setOnClickListener { request() }
         }
         root.addView(button, LinearLayout.LayoutParams(-1, dp(56)))
-
         status = TextView(this).apply {
             textSize = 12.5f
             setTextColor(muted)
             setPadding(0, dp(10), 0, dp(10))
         }
         root.addView(status)
-
         results = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         root.addView(results)
-
-        setMode("smart")
         scroll.addView(root)
         return scroll
-    }
-
-    private fun setMode(mode: String) {
-        selectedMode = mode
-        if (mode == "smart") {
-            tabSmart.background = rounded(Color.WHITE, 12, teal)
-            tabSmart.setTextColor(teal)
-            tabShort15s.background = null
-            tabShort15s.setTextColor(muted)
-            modeDescription.text = "???? ??????: ????????? ?????????? ???????? (? ?? ?? ????) ?? ??? ?? ?? ?? ?????."
-            button.text = "???? ?? ??????? ?????? ??????"
-        } else {
-            tabShort15s.background = rounded(Color.WHITE, 12, teal)
-            tabShort15s.setTextColor(teal)
-            tabSmart.background = null
-            tabSmart.setTextColor(muted)
-            modeDescription.text = "???? ?? ????????: ?? ?????? ??????? ?? ???? ??? ?? ????? (?????? ?????? ?? SFX)."
-            button.text = "???? ?? ?????? ????? ?? ????????"
-        }
     }
 
     private fun field(title: String, hint: String, lines: Int) = EditText(this).apply {
@@ -179,6 +149,7 @@ class ScenarioStudioActivity : Activity() {
             toast("???? ???? ? ??????? ?? ???? ??")
             return
         }
+        val selectedMode = if (modeSpinner.selectedItemPosition == 1) "short_15s" else "smart"
         val body = JSONObject()
             .put("niche", n)
             .put("business_description", d)
@@ -190,7 +161,6 @@ class ScenarioStudioActivity : Activity() {
         results.removeAllViews()
         status.text = if (selectedMode == "short_15s") "??? TakeOff ?? ??? ????? ?? ?????? ????? ?? ?????????" else "??? TakeOff ?? ??? ???? ? ????? ?? ???????"
         status.setTextColor(orange)
-
         Thread {
             val res = runCatching { post(body) }.getOrElse { 0 to it.message.orEmpty() }
             runOnUiThread {
@@ -229,7 +199,7 @@ class ScenarioStudioActivity : Activity() {
 
     private fun render(root: JSONObject) {
         results.removeAllViews()
-        status.text = if (selectedMode == "short_15s") "?? ?????? ????? ?? ???????? ????? ???" else "?? ?????? ????? ???"
+        status.text = "?? ?????? ????? ???"
         status.setTextColor(teal)
         val arr = findArray(root)
         if (arr.length() == 0) {

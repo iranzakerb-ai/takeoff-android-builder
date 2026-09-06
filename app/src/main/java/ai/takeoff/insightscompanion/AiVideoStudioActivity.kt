@@ -10,10 +10,12 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONArray
@@ -27,21 +29,16 @@ class AiVideoStudioActivity : Activity() {
     private val muted = Color.rgb(94, 108, 126)
     private val orange = Color.rgb(255, 122, 26)
     private val teal = Color.rgb(16, 202, 205)
-    private val lightGray = Color.rgb(240, 244, 248)
 
     private lateinit var niche: EditText
     private lateinit var description: EditText
     private lateinit var audience: EditText
     private lateinit var offer: EditText
     private lateinit var constraints: EditText
+    private lateinit var modeSpinner: Spinner
     private lateinit var status: TextView
     private lateinit var results: LinearLayout
     private lateinit var generate: Button
-    private lateinit var tabCinematic: TextView
-    private lateinit var tabViral10s: TextView
-    private lateinit var infoTitle: TextView
-    private lateinit var infoBody: TextView
-    private var selectedMode = "cinematic"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +55,6 @@ class AiVideoStudioActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(18), dp(22), dp(18), dp(32))
         }
-
         root.addView(TextView(this).apply {
             text = "?  ???? ?????? AI"
             textSize = 27f
@@ -66,53 +62,38 @@ class AiVideoStudioActivity : Activity() {
             setTextColor(ink)
             setOnClickListener { finish() }
         })
-
         root.addView(TextView(this).apply {
-            text = "???????? ??? ?????? ??????? ? Character Sheet + ?????????? Omni"
+            text = "?? ?????? AI ???? ? ????? ????? ? Character Sheet + Prompt??? Omni"
             textSize = 12.5f
             setTextColor(muted)
-            setPadding(0, dp(6), 0, dp(14))
+            setPadding(0, dp(6), 0, dp(18))
         })
-
-        // 2-Mode Selector Tab Bar
-        val tabsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = rounded(lightGray, 14, Color.rgb(225, 232, 240))
-        }
-
-        tabCinematic = TextView(this).apply {
-            text = "???? ?????? AI ???????"
-            textSize = 11.5f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            setOnClickListener { setMode("cinematic") }
-        }
-
-        tabViral10s = TextView(this).apply {
-            text = "?????? AI ?????? ?? ????????"
-            textSize = 11.5f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            setOnClickListener { setMode("viral_10s") }
-        }
-
-        tabsContainer.addView(tabCinematic, LinearLayout.LayoutParams(0, -2, 1f))
-        tabsContainer.addView(tabViral10s, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(tabsContainer, margin(10))
-
         root.addView(infoCard())
 
         niche = field("???? ???? *", "????? ?????? ?? ??????? ?????", 2)
-        description = field("????? ???????? *", "??? ????? ????? ??? ?????? ???? ?? ????????", 3)
+        description = field("????? ???????? *", "??? ????? ????? ??? ?????? ????", 3)
         audience = field("????? ???", "???????", 2)
         offer = field("????? ?? ??????? ????", "???????", 2)
         constraints = field("??????? ?? ???? ???", "???????", 2)
         listOf(niche, description, audience, offer, constraints).forEach { root.addView(it, margin(10)) }
 
+        root.addView(TextView(this).apply {
+            text = "???? ?????? AI:"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(ink)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        })
+        modeSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@AiVideoStudioActivity, android.R.layout.simple_spinner_dropdown_item, listOf("???? ?????? AI ???????", "???? ?????? AI ?????? ?? ????????"))
+            setSelection(0)
+            background = rounded(Color.WHITE, 16, Color.rgb(225, 231, 238))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        root.addView(modeSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(12) })
+
         generate = Button(this).apply {
+            text = "???? ?????? AI ?? Omni"
             isAllCaps = false
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
@@ -121,7 +102,6 @@ class AiVideoStudioActivity : Activity() {
             setOnClickListener { generate() }
         }
         root.addView(generate, LinearLayout.LayoutParams(-1, dp(56)).apply { bottomMargin = dp(10) })
-
         status = TextView(this).apply {
             textSize = 12.5f
             setTextColor(muted)
@@ -129,37 +109,13 @@ class AiVideoStudioActivity : Activity() {
             setPadding(0, dp(5), 0, dp(10))
         }
         root.addView(status)
-
         results = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         root.addView(results)
-
-        setMode("cinematic")
         scroll.addView(root)
         return scroll
-    }
-
-    private fun setMode(mode: String) {
-        selectedMode = mode
-        if (mode == "cinematic") {
-            tabCinematic.background = rounded(Color.WHITE, 12, teal)
-            tabCinematic.setTextColor(teal)
-            tabViral10s.background = null
-            tabViral10s.setTextColor(muted)
-            infoTitle.text = "?????? ??????? Flow / Omni"
-            infoBody.text = "???????? ?????? ???? ?? ????? ??????? ?? ?? ?? ? ? ?? ?????. ???? ?????? ?????."
-            generate.text = "???? ?????? AI ??????? ?? Omni"
-        } else {
-            tabViral10s.background = rounded(Color.WHITE, 12, teal)
-            tabViral10s.setTextColor(teal)
-            tabCinematic.background = null
-            tabCinematic.setTextColor(muted)
-            infoTitle.text = "???? Visual Micro-Spectacle (?? ?????)"
-            infoBody.text = "??????? ?????? ?? ???????? ?? ?? ????? ??????? ??????? ???? ??????? ??? ???? ? ??? ??????."
-            generate.text = "???? ?????? AI ?????? ?? ???????? (Micro-Spectacle)"
-        }
     }
 
     private fun infoCard() = LinearLayout(this).apply {
@@ -167,19 +123,19 @@ class AiVideoStudioActivity : Activity() {
         setPadding(dp(16), dp(14), dp(16), dp(14))
         background = rounded(Color.WHITE, 22, Color.rgb(228, 233, 240))
         elevation = dp(3).toFloat()
-        infoTitle = TextView(this@AiVideoStudioActivity).apply {
+        addView(TextView(this@AiVideoStudioActivity).apply {
+            text = "Flow / Omni Timing"
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(teal)
-        }
-        infoBody = TextView(this@AiVideoStudioActivity).apply {
-            textSize = 11.5f
+        })
+        addView(TextView(this@AiVideoStudioActivity).apply {
+            text = "?????? ???? ????? ???????? ?? ?????? ??????. ?? ?? ? ? ?? ????? ??? preset ???? ?? ????? ????? ? ????????? ????? ????. ???? ????? ????????."
+            textSize = 12f
             setTextColor(muted)
-            setPadding(0, dp(6), 0, 0)
-        }
-        addView(infoTitle)
-        addView(infoBody)
-    }.also { it.layoutParams = margin(12) }
+            setPadding(0, dp(7), 0, 0)
+        })
+    }.also { it.layoutParams = margin(16) }
 
     private fun field(title: String, hint: String, lines: Int) = EditText(this).apply {
         this.hint = "$title\n$hint"
@@ -200,20 +156,20 @@ class AiVideoStudioActivity : Activity() {
             toast("???? ???? ? ????? ???????? ?? ???? ??")
             return
         }
+        val selectedAiMode = if (modeSpinner.selectedItemPosition == 1) "viral_10s" else "cinematic"
         val body = JSONObject()
             .put("niche", n)
             .put("business_description", d)
             .put("audience", audience.text.toString().trim())
             .put("offer", offer.text.toString().trim())
             .put("production_constraints", constraints.text.toString().trim())
-            .put("mode", selectedMode)
-            .put("creative_preference", if (selectedMode == "viral_10s") "Visual Micro-Spectacle 10s" else "Cinematic Multi-Scene")
+            .put("mode", selectedAiMode)
+            .put("creative_preference", if (selectedAiMode == "viral_10s") "Visual Micro-Spectacle 10s" else "??????? ??????????? Retention? ????? ????? ????? ?? preset??? ?/?/?/??? ???? ????? ????????")
 
         generate.isEnabled = false
         results.removeAllViews()
-        status.text = if (selectedMode == "viral_10s") "?? ??? ????? ?? ???? Micro-Spectacle? ?????? ?????? ?? ???????? ? Character Sheet?" else "???? ???????? ????? ???? ? Retention? ????? ??????? ? Omni Prompt?"
+        status.text = if (selectedAiMode == "viral_10s") "???? ???? ?? ???????? Micro-Spectacle? ????? ????? ?????? ? Omni Prompt?" else "???? ???????? ????? ???? ? Retention? ????? ??????? ? Omni Prompt?"
         status.setTextColor(orange)
-
         Thread {
             val response = runCatching { post(body) }.getOrElse { 0 to it.message.orEmpty() }
             runOnUiThread {
@@ -256,11 +212,12 @@ class AiVideoStudioActivity : Activity() {
     private fun render(root: JSONObject) {
         results.removeAllViews()
         val video = root.optJSONObject("video") ?: root.optJSONArray("videos")?.optJSONObject(0) ?: root.optJSONObject("result")?.optJSONObject("video") ?: root
-        val isSpectacle = video.optString("mode") == "viral_10s" || video.optString("content_type") == "AI Visual Micro-Spectacle" || selectedMode == "viral_10s"
+        val isSpectacle = video.optString("mode") == "viral_10s" || video.optString("content_type") == "AI Visual Micro-Spectacle"
         status.text = if (isSpectacle) "?????? AI ?????? ?? ???????? ????? ???" else "???? ????? ????? ???"
         status.setTextColor(teal)
 
-        val title = video.optString("title").ifBlank { "?????? ????? TakeOff" }
+        val title = video.optString("title").ifBlank { video.optString("concept").ifBlank { "?????? ????? TakeOff" } }
+        results.addView(card("??????? ?????", title + "\n" + video.optString("summary").ifBlank { video.optString("concept") }))
 
         if (isSpectacle) {
             val archetype = video.optString("archetype")
@@ -269,35 +226,10 @@ class AiVideoStudioActivity : Activity() {
             val hook1s = video.optString("visual_hook_1s")
             val audioMode = video.optString("audio_mode")
             val loop = video.optString("loop_ending")
-            val desc = listOf(
-                "??????? ?????: $archetype",
-                "???? ??????: $anchor",
-                "????? ??????: $brokenRule",
-                "???? ????? ???: $hook1s",
-                "?? ????: $audioMode",
-                "??? ??????: $loop"
-            ).joinToString("\n")
-            results.addView(card("? $title (???? ?? ????????)", desc))
-
-            // Two primary copy cards for 10s spectacle
-            val charPrompt = video.optString("character_sheet_prompt").ifBlank {
-                video.optJSONArray("characters")?.optJSONObject(0)?.optString("character_sheet_prompt").orEmpty()
-            }
-            if (charPrompt.isNotBlank()) {
-                results.addView(copyCard("Character Sheet Prompt (?????? ???? ???? ? ???? ???????)", charPrompt, "??? Character Sheet Prompt"))
-            }
-
-            val omniPrompt = video.optString("omni_prompt").ifBlank {
-                video.optJSONArray("scenes")?.optJSONObject(0)?.optString("omni_prompt").orEmpty()
-            }
-            if (omniPrompt.isNotBlank()) {
-                results.addView(copyCard("10s Omni Prompt (????? ???? ?? Flow / Omni)", omniPrompt, "??? 10s Omni Prompt"))
-            }
-            return
+            val meta = "???????: $archetype\n???? ??????: $anchor\n????? ???????: $brokenRule\n????: $hook1s\n?? ????: $audioMode\n???: $loop"
+            results.addView(card("?????? Visual Micro-Spectacle", meta))
         }
 
-        // Cinematic multi-scene rendering
-        results.addView(card("??????? ?????", title + "\n" + video.optString("summary").ifBlank { video.optString("concept") }))
         val chars = video.optJSONArray("characters") ?: root.optJSONArray("characters") ?: JSONArray()
         for (i in 0 until chars.length()) {
             val c = chars.optJSONObject(i) ?: continue
@@ -305,6 +237,7 @@ class AiVideoStudioActivity : Activity() {
             val prompt = c.optString("character_sheet_prompt").ifBlank { c.optString("prompt") }
             if (prompt.isNotBlank()) results.addView(copyCard("Character Sheet ? $name", prompt, "??? Character Sheet Prompt"))
         }
+
         val scenes = video.optJSONArray("scenes") ?: root.optJSONArray("scenes") ?: JSONArray()
         for (i in 0 until scenes.length()) {
             val s = scenes.optJSONObject(i) ?: continue
