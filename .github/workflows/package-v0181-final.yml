@@ -1,4 +1,4 @@
-name: Package TakeOff 0.18.1 Final APK
+name: Package TakeOff 0.18.2 Final APK
 on:
   push:
     paths:
@@ -12,17 +12,17 @@ jobs:
         run: |
           set -euo pipefail
           curl -fL --retry 5 --retry-all-errors \
-            'https://blkbxodqgwgivyipahxf.supabase.co/storage/v1/object/public/takeoff-releases/TakeOff-Insights-0.18.1-final.apk' \
-            -o TakeOff-Insights-0.18.1.apk
-          test -s TakeOff-Insights-0.18.1.apk
+            'https://blkbxodqgwgivyipahxf.supabase.co/storage/v1/object/public/takeoff-releases/TakeOff-Insights-0.18.2-final.apk' \
+            -o TakeOff-Insights-0.18.2.apk
+          test -s TakeOff-Insights-0.18.2.apk
       - name: Verify SHA256
         run: |
           set -euo pipefail
-          echo 'db489df82bfa308c667be8a3c5df5d878dfd9a89c9cdf20a7d410c1f241925c4  TakeOff-Insights-0.18.1.apk' | sha256sum -c -
+          echo 'cbdcd583354ab64f0e34a5f4baeadb57d77b4c8bedb19d4f9d71bfcc58e3d6c3  TakeOff-Insights-0.18.2.apk' | sha256sum -c -
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.18.1
-          path: TakeOff-Insights-0.18.1.apk
+          name: TakeOff-Insights-0.18.2
+          path: TakeOff-Insights-0.18.2.apk
           retention-days: 7
           if-no-files-found: error
