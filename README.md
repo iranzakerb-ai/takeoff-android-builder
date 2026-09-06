@@ -18,3 +18,9 @@ The primary app experience must remain simple, Persian-first and glassmorphism-b
 This is the public, secret-free Android build mirror for TakeOff Insights. Backend code, credentials, private Owner Insight data and production secrets are intentionally excluded.
 
 The release pipeline validates package/version, live backend health, unit tests, lint, APK integrity/signature, manifest contracts, mission-lock source checks and secret scans before publishing an artifact.
+
+## Current verified APK
+
+[TakeOff Insights 0.18.0 final APK](https://blkbxodqgwgivyipahxf.supabase.co/storage/v1/object/public/takeoff-releases/TakeOff-Insights-0.18.0-final.apk)
+
+SHA-256: `c1f876383548bc05d44094bca92b28f09120cb81f3da868b76bd12061639a76e`
