@@ -90,12 +90,38 @@ class GlassHomeActivity : Activity() {
             gravity = Gravity.START
             setPadding(0, dp(5), 0, dp(22))
         })
-        motionRoot.addView(actionCard("۱  •  آمار واقعی پیج‌ها", "ثبت آمار ریلزهای خودمان", "Retention، Watch Time، Share/Save و Outcome سناریوها را ثبت کن تا ایجنت از نتیجه واقعی یاد بگیرد.", "ثبت یا مشاهده آمار", orange) {
-            launchWithFade(Intent(this, MainActivity::class.java))
-        }.also { ownerCount = it.findViewWithTag("count") }, margin(dp(14)))
-        motionRoot.addView(actionCard("۲  •  یادگیری از ریلزهای وایرال", "ریلز میلیونی را Share کن", "از Instagram به تیک‌آف Share کن؛ هوک، دیالوگ، سناریو، CTA، تصویر و مکانیزم‌های وایرال تحلیل می‌شوند.", "صف ریلزهای وایرال", teal) {
-            launchWithFade(Intent(this, ViralShareActivity::class.java))
-        }.also { viralCount = it.findViewWithTag("count") }, margin(dp(18)))
+
+        motionRoot.addView(actionCard(
+            "۱  •  آمار واقعی پیج‌ها",
+            "ثبت آمار ریلزهای خودمان",
+            "Retention، Watch Time، Share/Save و Outcome سناریوها را ثبت کن تا ایجنت از نتیجه واقعی یاد بگیرد.",
+            "ثبت یا مشاهده آمار",
+            orange,
+        ) { launchWithFade(Intent(this, MainActivity::class.java)) }.also { ownerCount = it.findViewWithTag("count") }, margin(dp(12)))
+
+        motionRoot.addView(actionCard(
+            "۲  •  یادگیری از ریلزهای وایرال",
+            "ریلز وایرال را برای تحلیل بفرست",
+            "از Instagram به تیک‌آف Share کن؛ هوک، دیالوگ، سناریو، CTA، تصویر و مکانیزم‌های وایرال تحلیل می‌شوند.",
+            "صف تحلیل",
+            teal,
+        ) { launchWithFade(Intent(this, ViralShareActivity::class.java)) }.also { viralCount = it.findViewWithTag("count") }, margin(dp(12)))
+
+        motionRoot.addView(simpleActionCard(
+            "۳  •  استودیو سناریو",
+            "۱۰ سناریوی آماده ضبط",
+            "مسیر اصلی سناریوهای انسانی/آماده ضبط؛ همان قابلیت ۱۰ سناریو و مستقل از استودیوی ویدیوی AI.",
+            "ساخت ۱۰ سناریو",
+            orange,
+        ) { launchWithFade(Intent(this, ScenarioStudioActivity::class.java)) }, margin(dp(12)))
+
+        motionRoot.addView(simpleActionCard(
+            "۴  •  AI Video Studio",
+            "ساخت ویدیوی AI با Omni",
+            "یک سناریوی نهایی، Character Sheet کاراکترها و Omni Prompt کامل برای تک‌تک سکانس‌ها با زمان‌های ۴/۶/۸/۱۰ ثانیه.",
+            "ورود به AI Video Studio",
+            teal,
+        ) { launchWithFade(Intent(this, AiVideoStudioActivity::class.java)) }, margin(dp(18)))
 
         val status = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -114,20 +140,29 @@ class GlassHomeActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(88), dp(42)))
         motionRoot.addView(status)
         motionRoot.addView(TextView(this).apply {
-            text = "دو مسیر اصلی؛ جزئیات فنی پشت صحنه می‌ماند."
+            text = "تحلیل، یادگیری و ساخت محتوا؛ جزئیات فنی پشت صحنه می‌ماند."
             textSize = 11.5f; setTextColor(muted); gravity = Gravity.CENTER; setPadding(dp(10), dp(18), dp(10), 0)
         })
         scroll.addView(motionRoot)
         return scroll
     }
 
-    private fun actionCard(eyebrow: String, title: String, body: String, buttonText: String, accent: Int, onClick: () -> Unit): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL; layoutDirection = View.LAYOUT_DIRECTION_RTL; setPadding(dp(18), dp(18), dp(18), dp(18))
-        background = rounded(glassStrong, 27, border); elevation = dp(7).toFloat()
+    private fun actionCard(eyebrow: String, title: String, body: String, buttonText: String, accent: Int, onClick: () -> Unit): LinearLayout =
+        simpleActionCard(eyebrow, title, body, buttonText, accent, onClick).apply {
+            addView(TextView(this@GlassHomeActivity).apply {
+                tag = "count"; textSize = 12f; setTextColor(navy); gravity = Gravity.START; setPadding(0, 0, 0, dp(12))
+            }, childCount - 1)
+        }
+
+    private fun simpleActionCard(eyebrow: String, title: String, body: String, buttonText: String, accent: Int, onClick: () -> Unit): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        background = rounded(glassStrong, 27, border)
+        elevation = dp(7).toFloat()
         addView(TextView(this@GlassHomeActivity).apply { text = eyebrow; textSize = 11.5f; setTextColor(accent); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.START })
         addView(TextView(this@GlassHomeActivity).apply { text = title; textSize = 23f; setTextColor(ink); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.START; setPadding(0, dp(7), 0, 0) })
         addView(TextView(this@GlassHomeActivity).apply { text = body; textSize = 13f; setTextColor(muted); gravity = Gravity.START; setLineSpacing(0f, 1.2f); setPadding(0, dp(10), 0, dp(12)) })
-        addView(TextView(this@GlassHomeActivity).apply { tag = "count"; textSize = 12f; setTextColor(navy); gravity = Gravity.START; setPadding(0, 0, 0, dp(12)) })
         addView(Button(this@GlassHomeActivity).apply {
             text = buttonText; isAllCaps = false; textSize = 14f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE); background = rounded(accent, 18, accent)
             setOnClickListener { tapMotion(this); postDelayed({ onClick() }, 110) }
@@ -140,7 +175,9 @@ class GlassHomeActivity : Activity() {
     }
 
     private fun tapMotion(view: View) {
-        view.animate().scaleX(.97f).scaleY(.97f).alpha(.82f).setDuration(80).withEndAction { view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start() }.start()
+        view.animate().scaleX(.97f).scaleY(.97f).alpha(.82f).setDuration(80).withEndAction {
+            view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start()
+        }.start()
     }
 
     private fun launchWithFade(intent: Intent) {
@@ -153,7 +190,10 @@ class GlassHomeActivity : Activity() {
         val ownerQueue = PayloadQueue(this).size()
         val account = runCatching { ManagedAccountStore(this).selected()?.normalizedHandle }.getOrNull().orEmpty()
         ownerCount.text = "پیج فعال: @${account.ifBlank { "—" }}  •  ثبت‌های در صف: $ownerQueue"
-        val items = SharedMediaQueue(this).all(); val active = items.count { it.status in setOf("queued", "submitting", "processing", "failed") }; val done = items.count { it.status == "completed" }; val errors = items.count { it.status == "dead_letter" }
+        val items = SharedMediaQueue(this).all()
+        val active = items.count { it.status in setOf("queued", "submitting", "processing", "failed") }
+        val done = items.count { it.status == "completed" }
+        val errors = items.count { it.status == "dead_letter" }
         viralCount.text = "در حال تحلیل: $active  •  یادگرفته‌شده: $done${if (errors > 0) "  •  نیاز به تلاش مجدد: $errors" else ""}"
     }
 
@@ -165,16 +205,27 @@ class GlassHomeActivity : Activity() {
             val health = runCatching {
                 val conn = java.net.URL(endpoint.trimEnd('/') + "/v4/media-jobs/health").openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 15_000; conn.readTimeout = 20_000; conn.requestMethod = "GET"
-                try { val code = conn.responseCode; val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty(); code to body } finally { conn.disconnect() }
+                try {
+                    val code = conn.responseCode
+                    val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    code to body
+                } finally { conn.disconnect() }
             }.getOrNull()
             runOnUiThread {
-                val h = health?.second?.let { runCatching { JSONObject(it) }.getOrNull() }; val ok = health?.first in 200..299 && h?.optBoolean("ok", false) == true
-                statusText.animate().alpha(0f).setDuration(110).withEndAction { statusText.text = if (ok) "● سیستم آماده و متصل است" else "● اتصال کامل نیست؛ دوباره بررسی کن"; statusText.setTextColor(if (ok) success else warning); statusText.animate().alpha(1f).setDuration(220).start() }.start()
+                val h = health?.second?.let { runCatching { JSONObject(it) }.getOrNull() }
+                val ok = health?.first in 200..299 && h?.optBoolean("ok", false) == true
+                statusText.animate().alpha(0f).setDuration(110).withEndAction {
+                    statusText.text = if (ok) "● سیستم آماده و متصل است" else "● اتصال کامل نیست؛ دوباره بررسی کن"
+                    statusText.setTextColor(if (ok) success else warning)
+                    statusText.animate().alpha(1f).setDuration(220).start()
+                }.start()
             }
         }.start()
     }
 
-    private fun rounded(fill: Int, radius: Int, stroke: Int) = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; setColor(fill); cornerRadius = dp(radius).toFloat(); setStroke(dp(1), stroke) }
+    private fun rounded(fill: Int, radius: Int, stroke: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE; setColor(fill); cornerRadius = dp(radius).toFloat(); setStroke(dp(1), stroke)
+    }
     private fun margin(bottom: Int) = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = bottom }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }
