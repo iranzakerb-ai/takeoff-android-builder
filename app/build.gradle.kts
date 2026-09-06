@@ -11,8 +11,8 @@ android {
         applicationId = "ai.takeoff.insightscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "0.18.2"
+        versionCode = 47
+        versionName = "0.18.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,6 +27,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
