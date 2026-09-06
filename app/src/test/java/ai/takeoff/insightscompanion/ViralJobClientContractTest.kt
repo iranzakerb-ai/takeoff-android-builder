@@ -7,9 +7,9 @@ import org.junit.Test
 
 class ViralJobClientContractTest {
     @Test fun productionViralEndpointUsesDurableRuntime() {
-        assertEquals("https://takeoff-seven-puce.vercel.app", PayloadClient.PRODUCTION_ENDPOINT)
-        assertEquals("https://takeoff-virality-engine.onrender.com", PayloadClient.VIRAL_PRODUCTION_ENDPOINT)
-        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://takeoff-virality-engine.onrender.com"))
+        assertEquals("https://takeoff-virality-engine.vercel.app", PayloadClient.PRODUCTION_ENDPOINT)
+        assertEquals("https://takeoff-virality-engine.vercel.app", PayloadClient.VIRAL_PRODUCTION_ENDPOINT)
+        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://takeoff-virality-engine.vercel.app"))
         assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, ViralStreamClient.PRODUCTION_ENDPOINT)
     }
 
