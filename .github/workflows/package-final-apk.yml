@@ -1,0 +1,29 @@
+name: Package Final APK
+
+on:
+  push:
+    paths:
+      - '.github/workflows/package-final-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified APK
+        run: |
+          curl -fL --retry 5 --retry-all-errors \
+            'https://blkbxodqgwgivyipahxf.supabase.co/storage/v1/object/public/takeoff-releases/TakeOff-Insights-0.18.0-final.apk' \
+            -o TakeOff-Insights-0.18.0.apk
+          test "$(stat -c '%s' TakeOff-Insights-0.18.0.apk)" = "45864709"
+          echo 'c1f876383548bc05d44094bca92b28f09120cb81f3da868b76bd12061639a76e  TakeOff-Insights-0.18.0.apk' | sha256sum -c -
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-0.18.0
+          path: TakeOff-Insights-0.18.0.apk
+          if-no-files-found: error
+          retention-days: 7
