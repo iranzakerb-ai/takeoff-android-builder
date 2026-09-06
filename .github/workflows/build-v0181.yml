@@ -1,0 +1,70 @@
+name: Build TakeOff 0.18.1
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-v0181.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app source
+        uses: actions/checkout@v4
+        with:
+          repository: iranzakerb-ai/takeoff-virality-engine
+          ref: main
+          path: src
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Setup Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Regression gate for requested fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'versionCode = 45' src/companion/android/app/build.gradle.kts
+          grep -F 'versionName = "0.18.1"' src/companion/android/app/build.gradle.kts
+          grep -F 'd.isBlank()' src/companion/android/app/src/main/java/ai/takeoff/insightscompanion/AiVideoStudioActivity.kt
+          ! grep -F 'd.length < 10' src/companion/android/app/src/main/java/ai/takeoff/insightscompanion/AiVideoStudioActivity.kt
+          grep -F '/v2/viral-evidence/pair' src/companion/android/app/src/main/java/ai/takeoff/insightscompanion/AiVideoStudioActivity.kt
+          grep -F 'device_token' src/companion/android/app/src/main/java/ai/takeoff/insightscompanion/AiVideoStudioActivity.kt
+      - name: Unit tests lint and assemble
+        working-directory: src/companion/android
+        run: gradle --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Verify APK contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=src/companion/android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          BT="${ANDROID_HOME}/build-tools/35.0.0"
+          if [ ! -x "$BT/apksigner" ]; then BT="$(dirname "$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)")"; fi
+          "$BT/apksigner" verify --verbose "$APK"
+          "$BT/aapt" dump badging "$APK" | tee badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='45' versionName='0.18.1'" badging.txt
+          grep -F "launchable-activity: name='ai.takeoff.insightscompanion.GlassHomeActivity'" badging.txt
+          "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml > manifest.txt
+          grep -q AiVideoStudioActivity manifest.txt
+          grep -q android.intent.action.SEND manifest.txt
+          grep -q android.intent.action.SEND_MULTIPLE manifest.txt
+          ! grep -q android.permission.RECORD_AUDIO manifest.txt
+          cp "$APK" TakeOff-Insights-0.18.1.apk
+          sha256sum TakeOff-Insights-0.18.1.apk | tee TakeOff-Insights-0.18.1.sha256
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TakeOff-Insights-0.18.1
+          path: |
+            TakeOff-Insights-0.18.1.apk
+            TakeOff-Insights-0.18.1.sha256
+            badging.txt
+          retention-days: 7
+          if-no-files-found: error
