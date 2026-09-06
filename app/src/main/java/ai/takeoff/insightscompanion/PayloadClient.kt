@@ -7,8 +7,8 @@ import java.net.URL
 import java.net.URLEncoder
 
 object PayloadClient {
-    const val PRODUCTION_ENDPOINT = "https://takeoff-seven-puce.vercel.app"
-    const val VIRAL_PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.onrender.com"
+    const val PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.vercel.app"
+    const val VIRAL_PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.vercel.app"
     internal const val VIRAL_ANALYSIS_READ_TIMEOUT_MS = 300_000
 
     internal fun validateEndpoint(endpoint: String) {
@@ -25,7 +25,9 @@ object PayloadClient {
         if (raw.isBlank()) return VIRAL_PRODUCTION_ENDPOINT
         val parsed = runCatching { URL(raw) }.getOrNull() ?: return VIRAL_PRODUCTION_ENDPOINT
         val host = parsed.host.trim().lowercase()
-        return if (parsed.protocol.equals("http", true) && isTrustedLanHost(host)) raw else VIRAL_PRODUCTION_ENDPOINT
+        if (parsed.protocol.equals("http", true) && isTrustedLanHost(host)) return raw
+        if (parsed.protocol.equals("https", true) && (host.endsWith("vercel.app") || host.endsWith("supabase.co"))) return raw
+        return VIRAL_PRODUCTION_ENDPOINT
     }
 
     private fun isTrustedLanHost(host: String): Boolean {
