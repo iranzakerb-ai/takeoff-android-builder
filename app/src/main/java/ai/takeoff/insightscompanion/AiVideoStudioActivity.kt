@@ -56,36 +56,37 @@ class AiVideoStudioActivity : Activity() {
             setPadding(dp(18), dp(22), dp(18), dp(32))
         }
         root.addView(TextView(this).apply {
-            text = "?  ???? ?????? AI"
+            text = "‹  ساخت ویدیوی AI"
             textSize = 27f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(ink)
             setOnClickListener { finish() }
         })
         root.addView(TextView(this).apply {
-            text = "?? ?????? AI ???? ? ????? ????? ? Character Sheet + Prompt??? Omni"
+            text = "یک ویدیوی AI کامل و آماده تولید • Character Sheet + Promptهای Omni"
             textSize = 12.5f
             setTextColor(muted)
             setPadding(0, dp(6), 0, dp(18))
         })
         root.addView(infoCard())
 
-        niche = field("???? ???? *", "????? ?????? ?? ??????? ?????", 2)
-        description = field("????? ???????? *", "??? ????? ????? ??? ?????? ????", 3)
-        audience = field("????? ???", "???????", 2)
-        offer = field("????? ?? ??????? ????", "???????", 2)
-        constraints = field("??????? ?? ???? ???", "???????", 2)
+        niche = field("حوزه کاری *", "مثلاً باربری یا تعمیرات خودرو", 2)
+        description = field("توضیح کسب‌وکار *", "حتی توضیح کوتاه مثل «اسباب کشی»", 3)
+        audience = field("مخاطب هدف", "اختیاری", 2)
+        offer = field("محصول یا پیشنهاد اصلی", "اختیاری", 2)
+        constraints = field("محدودیت یا نکته مهم", "اختیاری", 2)
         listOf(niche, description, audience, offer, constraints).forEach { root.addView(it, margin(10)) }
 
         root.addView(TextView(this).apply {
-            text = "???? ?????? AI:"
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
+            text = "حالت تولید ویدیو AI:"
+            textSize = 12.5f
             setTextColor(ink)
+            typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(4), dp(4), dp(4), dp(4))
         })
         modeSpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@AiVideoStudioActivity, android.R.layout.simple_spinner_dropdown_item, listOf("???? ?????? AI ???????", "???? ?????? AI ?????? ?? ????????"))
+            val modes = listOf("ساخت ویدیوی AI سینمایی (چند سکانس)", "ساخت ویدیوی AI وایرال ۱۰ ثانیه‌ای (Visual Micro-Spectacle)")
+            adapter = ArrayAdapter(this@AiVideoStudioActivity, android.R.layout.simple_spinner_dropdown_item, modes)
             setSelection(0)
             background = rounded(Color.WHITE, 16, Color.rgb(225, 231, 238))
             setPadding(dp(12), dp(8), dp(12), dp(8))
@@ -93,7 +94,7 @@ class AiVideoStudioActivity : Activity() {
         root.addView(modeSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(12) })
 
         generate = Button(this).apply {
-            text = "???? ?????? AI ?? Omni"
+            text = "ساخت ویدیوی AI با Omni"
             isAllCaps = false
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
@@ -102,6 +103,7 @@ class AiVideoStudioActivity : Activity() {
             setOnClickListener { generate() }
         }
         root.addView(generate, LinearLayout.LayoutParams(-1, dp(56)).apply { bottomMargin = dp(10) })
+
         status = TextView(this).apply {
             textSize = 12.5f
             setTextColor(muted)
@@ -109,6 +111,7 @@ class AiVideoStudioActivity : Activity() {
             setPadding(0, dp(5), 0, dp(10))
         }
         root.addView(status)
+
         results = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -130,7 +133,7 @@ class AiVideoStudioActivity : Activity() {
             setTextColor(teal)
         })
         addView(TextView(this@AiVideoStudioActivity).apply {
-            text = "?????? ???? ????? ???????? ?? ?????? ??????. ?? ?? ? ? ?? ????? ??? preset ???? ?? ????? ????? ? ????????? ????? ????. ???? ????? ????????."
+            text = "تیک‌آف خودش تعداد سکانس‌ها را انتخاب می‌کند. ۴، ۶، ۸ و ۱۰ ثانیه فقط preset زمان هر سکانس هستند و می‌توانند تکرار شوند. بدون موزیک پس‌زمینه."
             textSize = 12f
             setTextColor(muted)
             setPadding(0, dp(7), 0, 0)
@@ -153,33 +156,35 @@ class AiVideoStudioActivity : Activity() {
         val n = niche.text.toString().trim()
         val d = description.text.toString().trim()
         if (n.length < 2 || d.isBlank()) {
-            toast("???? ???? ? ????? ???????? ?? ???? ??")
+            toast("حوزه کاری و توضیح کسب‌وکار را وارد کن")
             return
         }
-        val selectedAiMode = if (modeSpinner.selectedItemPosition == 1) "viral_10s" else "cinematic"
+        val selectedMode = if (modeSpinner.selectedItemPosition == 1) "viral_10s" else "cinematic"
         val body = JSONObject()
             .put("niche", n)
             .put("business_description", d)
             .put("audience", audience.text.toString().trim())
             .put("offer", offer.text.toString().trim())
             .put("production_constraints", constraints.text.toString().trim())
-            .put("mode", selectedAiMode)
-            .put("creative_preference", if (selectedAiMode == "viral_10s") "Visual Micro-Spectacle 10s" else "??????? ??????????? Retention? ????? ????? ????? ?? preset??? ?/?/?/??? ???? ????? ????????")
+            .put("creative_preference", "خودکار؛ بیشینه‌سازی Retention؛ بدون موزیک پس‌زمینه")
+            .put("mode", selectedMode)
 
         generate.isEnabled = false
         results.removeAllViews()
-        status.text = if (selectedAiMode == "viral_10s") "???? ???? ?? ???????? Micro-Spectacle? ????? ????? ?????? ? Omni Prompt?" else "???? ???????? ????? ???? ? Retention? ????? ??????? ? Omni Prompt?"
+        status.text = if (selectedMode == "viral_10s") "مغز تیک‌آف در حال طراحی Visual Micro-Spectacle ۱۰ ثانیه‌ای و داوری ویروسی…" else "ساخت ایده‌ها، داوری قلاب و Retention، طراحی کاراکتر و Omni Prompt…"
         status.setTextColor(orange)
+
         Thread {
             val response = runCatching { post(body) }.getOrElse { 0 to it.message.orEmpty() }
             runOnUiThread {
                 generate.isEnabled = true
                 if (response.first in 200..299) {
-                    runCatching { JSONObject(response.second) }.getOrNull()?.let(::render) ?: showError("???? ???? ???? ?????? ????")
+                    runCatching { JSONObject(response.second) }.getOrNull()?.let(::render)
+                        ?: showError("پاسخ سرور قابل خواندن نبود")
                 } else if (response.first == 401) {
-                    showError("????? ??? ?????? ????? ????? ???? ????? ?? ?? ?????? ???? ????? ??")
+                    showError("اتصال امن دستگاه معتبر نیست؛ کلید اتصال را در برنامه اصلی بررسی کن")
                 } else {
-                    showError("???? ????? ?????? ??? (?? ${response.first})")
+                    showError("ساخت ویدیو ناموفق بود (کد ${response.first})")
                 }
             }
         }.start()
@@ -211,45 +216,69 @@ class AiVideoStudioActivity : Activity() {
 
     private fun render(root: JSONObject) {
         results.removeAllViews()
-        val video = root.optJSONObject("video") ?: root.optJSONArray("videos")?.optJSONObject(0) ?: root.optJSONObject("result")?.optJSONObject("video") ?: root
-        val isSpectacle = video.optString("mode") == "viral_10s" || video.optString("content_type") == "AI Visual Micro-Spectacle"
-        status.text = if (isSpectacle) "?????? AI ?????? ?? ???????? ????? ???" else "???? ????? ????? ???"
+        val isViral10 = root.optString("mode") == "viral_10s"
+        status.text = if (isViral10) "بسته Visual Micro-Spectacle (۱۰ ثانیه‌ای) آماده است" else "بسته نهایی آماده است"
         status.setTextColor(teal)
 
-        val title = video.optString("title").ifBlank { video.optString("concept").ifBlank { "?????? ????? TakeOff" } }
-        results.addView(card("??????? ?????", title + "\n" + video.optString("summary").ifBlank { video.optString("concept") }))
+        val video = root.optJSONObject("video") ?: root.optJSONArray("videos")?.optJSONObject(0) ?: root.optJSONObject("result")?.optJSONObject("video") ?: root
+        val title = video.optString("title").ifBlank { video.optString("concept").ifBlank { "ویدیوی نهایی TakeOff" } }
+        results.addView(card("سناریوی نهایی", title + "\n" + video.optString("summary").ifBlank { video.optString("concept") }))
 
-        if (isSpectacle) {
-            val archetype = video.optString("archetype")
-            val anchor = video.optString("reality_anchor")
-            val brokenRule = video.optString("broken_impossible_rule")
-            val hook1s = video.optString("visual_hook_1s")
-            val audioMode = video.optString("audio_mode")
-            val loop = video.optString("loop_ending")
-            val meta = "???????: $archetype\n???? ??????: $anchor\n????? ???????: $brokenRule\n????: $hook1s\n?? ????: $audioMode\n???: $loop"
-            results.addView(card("?????? Visual Micro-Spectacle", meta))
-        }
-
+        // Characters
         val chars = video.optJSONArray("characters") ?: root.optJSONArray("characters") ?: JSONArray()
+        var firstCharPrompt = ""
         for (i in 0 until chars.length()) {
             val c = chars.optJSONObject(i) ?: continue
-            val name = c.optString("name").ifBlank { "??????? ${i + 1}" }
+            val name = c.optString("name").ifBlank { "کاراکتر ${i + 1}" }
             val prompt = c.optString("character_sheet_prompt").ifBlank { c.optString("prompt") }
-            if (prompt.isNotBlank()) results.addView(copyCard("Character Sheet ? $name", prompt, "??? Character Sheet Prompt"))
+            if (firstCharPrompt.isBlank()) firstCharPrompt = prompt
+            if (prompt.isNotBlank()) results.addView(copyCard("Character Sheet • $name", prompt, "کپی Character Sheet Prompt"))
         }
 
+        // Micro-Spectacle Card if present
+        val spec = video.optJSONObject("spectacle") ?: root.optJSONObject("spectacle")
+        val omni10 = video.optString("omni_prompt_10s").ifBlank { root.optString("omni_prompt_10s") }
+        if (spec != null || isViral10) {
+            val arch = spec?.optString("archetype_name").orEmpty().ifBlank { spec?.optString("archetype").orEmpty() }
+            val action = spec?.optString("spectacle_action").orEmpty()
+            val contrast = spec?.optString("contrast_shift").orEmpty()
+            val sound = spec?.optString("sound_design").orEmpty()
+            val score = spec?.optDouble("viral_score", 0.0) ?: 0.0
+            val specSummary = buildString {
+                if (arch.isNotBlank()) append("الگوی جاذبه بصری: $arch\n")
+                if (action.isNotBlank()) append("اکشن میکرو-اسپکتاکل: $action\n")
+                if (contrast.isNotBlank()) append("تغییر تضاد حسی: $contrast\n")
+                if (sound.isNotBlank()) append("طراحی صدا و Foley: $sound\n")
+                if (score > 0.0) append("امتیاز ویروسی (داوری ۹ گانه): ${"%.1f".format(score)} / 10.0\n")
+            }.trim()
+            if (specSummary.isNotBlank()) {
+                results.addView(card("طراحی Visual Micro-Spectacle (۱۰ ثانیه)", specSummary))
+            }
+            if (firstCharPrompt.isNotBlank()) {
+                results.addView(copyCard("پرامپت کاراکتر شیت (Character Sheet)", firstCharPrompt, "کپی Character Sheet Prompt"))
+            }
+            val promptToCopy = if (omni10.isNotBlank()) omni10 else video.optString("omni_prompt")
+            if (promptToCopy.isNotBlank()) {
+                results.addView(copyCard("پرامپت جامع تولید ویدیو (Omni Prompt)", promptToCopy, "کپی Omni Prompt (۱۰ ثانیه‌ای)"))
+            }
+        }
+
+        // Scenes
         val scenes = video.optJSONArray("scenes") ?: root.optJSONArray("scenes") ?: JSONArray()
         for (i in 0 until scenes.length()) {
             val s = scenes.optJSONObject(i) ?: continue
             val duration = s.optInt("duration_seconds", s.optInt("duration", 0))
             val dialogue = s.optString("dialogue").ifBlank { s.optString("spoken_dialogue") }
             val prompt = s.optString("omni_prompt").ifBlank { s.optString("prompt") }
-            val header = "????? ${i + 1}${if (duration > 0) " ? ${duration} ?????" else ""}"
+            val header = "سکانس ${i + 1}${if (duration > 0) " • ${duration} ثانیه" else ""}"
             val meta = listOf(s.optString("purpose"), dialogue).filter { it.isNotBlank() }.joinToString("\n")
             if (meta.isNotBlank()) results.addView(card(header, meta))
-            if (prompt.isNotBlank()) results.addView(copyCard("Omni Prompt ? ????? ${i + 1}", prompt, "??? Omni Prompt ??? ?????"))
+            if (prompt.isNotBlank()) results.addView(copyCard("Omni Prompt • سکانس ${i + 1}", prompt, "کپی Omni Prompt این سکانس"))
         }
-        if (scenes.length() == 0) results.addView(card("????? ???", video.toString(2).take(7000)))
+
+        if (scenes.length() == 0 && (spec == null || omni10.isBlank())) {
+            results.addView(card("خروجی خام", video.toString(2).take(7000)))
+        }
     }
 
     private fun card(title: String, body: String) = LinearLayout(this).apply {
@@ -300,7 +329,7 @@ class AiVideoStudioActivity : Activity() {
 
     private fun copy(value: String) {
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("TakeOff", value))
-        toast("??? ??")
+        toast("کپی شد")
     }
 
     private fun showError(value: String) {
