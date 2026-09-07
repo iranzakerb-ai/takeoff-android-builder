@@ -5,12 +5,12 @@ import org.json.JSONObject
 /**
  * Legacy compatibility facade.
  *
- * Public viral-learning traffic must use the durable viral runtime. Keeping this
- * facade avoids accidental fallback to the Owner/edge endpoint from old call sites.
+ * The production share flow is ViralJobClient + Vercel-compatible hosting. Keeping
+ * this facade avoids accidental reintroduction of the former streaming endpoint.
  */
-@Deprecated("Use ViralJobClient with PayloadClient.VIRAL_PRODUCTION_ENDPOINT")
+@Deprecated("Use ViralJobClient with PayloadClient.PRODUCTION_ENDPOINT")
 object ViralStreamClient {
-    const val PRODUCTION_ENDPOINT = PayloadClient.VIRAL_PRODUCTION_ENDPOINT
+    val PRODUCTION_ENDPOINT: String = PayloadClient.PRODUCTION_ENDPOINT
 
     data class StreamResult(val httpCode: Int, val errorBody: String = "")
 
@@ -20,7 +20,7 @@ object ViralStreamClient {
         onEvent: (JSONObject) -> Unit,
     ): StreamResult {
         val result = ViralJobClient.analyze(
-            endpoint = PayloadClient.VIRAL_PRODUCTION_ENDPOINT,
+            endpoint = PayloadClient.PRODUCTION_ENDPOINT,
             reelUrl = reelUrl,
             niche = niche,
             onEvent = onEvent,

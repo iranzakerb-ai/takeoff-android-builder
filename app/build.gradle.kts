@@ -3,40 +3,29 @@ plugins {
     kotlin("android")
 }
 
+val takeoffProductionEndpoint = providers.environmentVariable("TAKEOFF_PRODUCTION_ENDPOINT")
+    .orElse("https://takeoff-virality-engine.vercel.app").get().trim().trimEnd('/')
+val escapedTakeoffProductionEndpoint = takeoffProductionEndpoint.replace("\\", "\\\\").replace("\"", "\\\"")
+
 android {
     namespace = "ai.takeoff.insightscompanion"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "ai.takeoff.insightscompanion"
-        minSdk = 26
-        targetSdk = 35
-        versionCode = 47
-        versionName = "0.18.3"
+        minSdk = 26; targetSdk = 35
+        versionCode = 49
+        versionName = "0.19.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "TAKEOFF_PRODUCTION_ENDPOINT", "\"$escapedTakeoffProductionEndpoint\"")
     }
-
+    signingConfigs { create("release") { val p=System.getenv("KEYSTORE_PATH"); if(p!=null){storeFile=file(p);storePassword=System.getenv("KEYSTORE_PASSWORD");keyAlias=System.getenv("KEY_ALIAS");keyPassword=System.getenv("KEY_PASSWORD")} } }
     buildFeatures { buildConfig = true }
-
     buildTypes {
-        debug {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        }
-        release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        }
+        debug { isMinifyEnabled=true;isShrinkResources=true;proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro") }
+        release { isMinifyEnabled=true;isShrinkResources=true;signingConfig=if(System.getenv("KEYSTORE_PATH").isNullOrBlank()) signingConfigs.getByName("debug") else signingConfigs.getByName("release");proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro") }
     }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions { jvmTarget = "17" }
+    compileOptions { sourceCompatibility=JavaVersion.VERSION_17;targetCompatibility=JavaVersion.VERSION_17 }
+    kotlinOptions { jvmTarget="17" }
 }
 
 dependencies {
@@ -49,3 +38,5 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
 }
+
+// 0.19.1: golden UI source, short-description studio contract, two-mode studios, and bounded media failure recovery.

@@ -7,9 +7,8 @@ import java.net.URL
 object ServerOcrClient {
     data class Result(val code: Int, val body: JSONObject?, val raw: String)
 
-    fun analyze(endpoint: String, companionKey: String, jpeg: ByteArray?): Result {
-        val safeJpeg = requireNotNull(jpeg) { "missing screenshot" }
-        require(safeJpeg.isNotEmpty()) { "empty screenshot" }
+    fun analyze(endpoint: String, companionKey: String, jpeg: ByteArray): Result {
+        require(jpeg.isNotEmpty()) { "empty screenshot" }
         val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         val conn = URL("$base/v4/owner-ocr").openConnection() as HttpURLConnection
         try {
@@ -22,8 +21,8 @@ object ServerOcrClient {
             conn.setRequestProperty("Content-Type", "image/jpeg")
             conn.setRequestProperty("X-Takeoff-Companion-Key", companionKey)
             conn.setRequestProperty("User-Agent", "TakeOff-Insights/${BuildConfig.VERSION_NAME}")
-            conn.setFixedLengthStreamingMode(safeJpeg.size)
-            conn.outputStream.use { it.write(safeJpeg) }
+            conn.setFixedLengthStreamingMode(jpeg.size)
+            conn.outputStream.use { it.write(jpeg) }
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val raw = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()

@@ -20,5 +20,9 @@ class ReminderArmActivity : Activity() {
         }
         finish()
     }
-    companion object { const val EXTRA_ACCOUNT = "reminder_account"; const val EXTRA_URL = "reminder_url" }
+
+    companion object {
+        const val EXTRA_ACCOUNT = "reminder_account"
+        const val EXTRA_URL = "reminder_url"
+    }
 }

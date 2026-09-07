@@ -6,11 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ViralJobClientContractTest {
-    @Test fun productionViralEndpointUsesDurableRuntime() {
+    @Test fun productionViralEndpointIsVercel() {
         assertEquals("https://takeoff-virality-engine.vercel.app", PayloadClient.PRODUCTION_ENDPOINT)
-        assertEquals("https://takeoff-virality-engine.vercel.app", PayloadClient.VIRAL_PRODUCTION_ENDPOINT)
-        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://takeoff-virality-engine.vercel.app"))
-        assertEquals(PayloadClient.VIRAL_PRODUCTION_ENDPOINT, ViralStreamClient.PRODUCTION_ENDPOINT)
+        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, PayloadClient.viralEndpoint("https://takeoff-virality-engine.onrender.com"))
+        assertEquals(PayloadClient.PRODUCTION_ENDPOINT, ViralStreamClient.PRODUCTION_ENDPOINT)
     }
 
     @Test fun pollUsesPostPathAndJsonToken() {

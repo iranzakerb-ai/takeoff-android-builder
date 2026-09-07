@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
-import android.view.animation.DecelerateInterpolator
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,14 +28,12 @@ import java.text.DecimalFormat
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
-    private val bg = Color.rgb(250, 252, 255)
-    private val panel = Color.argb(236, 255, 255, 255)
-    private val panel2 = Color.argb(214, 255, 255, 255)
-    private val border = Color.argb(82, 9, 24, 43)
-    private val accent = Color.rgb(16, 202, 205)
-    private val primary = Color.rgb(255, 122, 26)
-    private val ink = Color.rgb(15, 23, 35)
-    private val muted = Color.rgb(94, 108, 126)
+    private val bg = Color.rgb(8, 11, 16)
+    private val panel = Color.rgb(13, 18, 25)
+    private val panel2 = Color.rgb(18, 24, 32)
+    private val border = Color.rgb(40, 51, 64)
+    private val accent = Color.rgb(0, 228, 208)
+    private val muted = Color.rgb(174, 183, 197)
 
     private lateinit var accountStore: ManagedAccountStore
     private lateinit var insightStore: LocalInsightStore
@@ -62,9 +59,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.TRANSPARENT
+        window.statusBarColor = bg
         window.navigationBarColor = bg
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         accountStore = ManagedAccountStore(this)
         insightStore = LocalInsightStore(this)
         secretStore = SecretStore(this)
@@ -106,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             addView(TextView(this@MainActivity).apply {
                 text = "تیک‌آف"
                 textSize = 21f
-                setTextColor(ink)
+                setTextColor(Color.WHITE)
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.START
             })
@@ -125,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), dp(7), dp(8), dp(8))
-            background = rounded(panel, 22f, border)
+            background = rounded(panel, 18f, border)
         }
         listOf("خانه", "ثبت آمار", "ریلزها", "آموخته‌ها", "پیج‌ها").forEachIndexed { index, label ->
             nav.addView(Button(this).apply {
@@ -147,8 +143,8 @@ class MainActivity : AppCompatActivity() {
         content.removeAllViews()
         for (i in 0 until nav.childCount) {
             (nav.getChildAt(i) as Button).apply {
-                setTextColor(if (i == index) Color.WHITE else muted)
-                background = rounded(if (i == index) primary else Color.TRANSPARENT, 13f, Color.TRANSPARENT)
+                setTextColor(if (i == index) Color.rgb(5, 15, 18) else muted)
+                background = rounded(if (i == index) accent else Color.TRANSPARENT, 13f, Color.TRANSPARENT)
             }
         }
         val view = when (index) {
@@ -159,9 +155,6 @@ class MainActivity : AppCompatActivity() {
             else -> accountsPage()
         }
         content.addView(view)
-        view.alpha = 0f
-        view.translationY = dp(16).toFloat()
-        view.animate().alpha(1f).translationY(0f).setDuration(360).setInterpolator(DecelerateInterpolator()).start()
     }
 
     private fun page(title: String, subtitle: String, builder: (LinearLayout) -> Unit): View {
@@ -174,7 +167,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = title
             textSize = 24f
-            setTextColor(ink)
+            setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.START
         })
@@ -196,7 +189,7 @@ class MainActivity : AppCompatActivity() {
         val reels = insightStore.reels(active?.normalizedHandle)
         root.addView(card().apply {
             addView(section("وضعیت امروز"))
-            addView(big(if (queueSize == 0) "آماده" else "$queueSize ثبت در صف امن", if (queueSize == 0) accent else primary))
+            addView(big(if (queueSize == 0) "آماده" else "$queueSize ثبت در صف امن", if (queueSize == 0) accent else Color.rgb(255, 190, 70)))
             addView(body("پیج فعال: @${active?.normalizedHandle.orEmpty()}\nریلزهای ثبت‌شده: ${reels.size}"))
         }, margin(dp(12)))
 
@@ -223,7 +216,7 @@ class MainActivity : AppCompatActivity() {
         val armedAccount = prefs.getString("armed_account", "").orEmpty()
         root.addView(card().apply {
             addView(section("ریلز آماده"))
-            addView(big(if (shortcode.isBlank()) "هنوز انتخاب نشده" else shortcode, ink))
+            addView(big(if (shortcode.isBlank()) "هنوز انتخاب نشده" else shortcode, Color.WHITE))
             val message = when {
                 shortcode.isBlank() -> "از اینستاگرام ریلز را Share کن و تیک‌آف را انتخاب کن."
                 armedAccount.isNotBlank() && armedAccount != active -> "این ریلز برای @$armedAccount قفل شده. برای @$active دوباره Share کن."
@@ -304,7 +297,7 @@ class MainActivity : AppCompatActivity() {
             val reels = insightStore.reels(account.normalizedHandle)
             root.addView(card().apply {
                 addView(section(if (account.normalizedHandle == selected) "پیج فعال" else "پیج"))
-                addView(big("${account.label}  @${account.normalizedHandle}", ink))
+                addView(big("${account.label}  @${account.normalizedHandle}", Color.WHITE))
                 addView(body("حوزه: ${nicheFor(account.normalizedHandle)} • ${reels.size} ریلز"))
                 if (account.normalizedHandle != selected) {
                     addView(button("فعال کردن", false) {
@@ -358,7 +351,7 @@ class MainActivity : AppCompatActivity() {
         addView(TextView(this@MainActivity).apply {
             text = "${reel.shortcode} • ${stateFa(reel.state)}"
             textSize = 14f
-            setTextColor(ink)
+            setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.START
         })
@@ -376,7 +369,7 @@ class MainActivity : AppCompatActivity() {
             val check = CheckBox(this@MainActivity).apply {
                 text = "${reel.shortcode} • ${stateFa(reel.state)}"
                 textSize = 14.5f
-                setTextColor(ink)
+                setTextColor(Color.WHITE)
                 typeface = Typeface.DEFAULT_BOLD
                 isChecked = key in selectedForCompare
                 setOnCheckedChangeListener { button, checked ->
@@ -651,8 +644,7 @@ class MainActivity : AppCompatActivity() {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
         setPadding(dp(16), dp(15), dp(16), dp(15))
-        background = rounded(panel, 22f, border)
-        elevation = dp(5).toFloat()
+        background = rounded(panel, 18f, border)
     }
 
     private fun section(value: String) = TextView(this).apply {
@@ -684,14 +676,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun field(hintText: String, value: String) = EditText(this).apply {
         hint = hintText
-        setHintTextColor(Color.rgb(140, 150, 164))
-        setTextColor(ink)
+        setHintTextColor(Color.rgb(105, 116, 132))
+        setTextColor(Color.WHITE)
         textSize = 14.5f
         setText(value)
         gravity = Gravity.START or Gravity.CENTER_VERTICAL
         setSingleLine(true)
         setPadding(dp(14), 0, dp(14), 0)
-        background = rounded(panel2, 15f, border)
+        background = rounded(panel2, 13f, border)
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { bottomMargin = dp(9) }
     }
 
@@ -700,14 +692,9 @@ class MainActivity : AppCompatActivity() {
         isAllCaps = false
         textSize = 13.5f
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(if (primary) Color.WHITE else ink)
-        background = rounded(if (primary) this@MainActivity.primary else panel2, 14f, if (primary) this@MainActivity.primary else border)
-        setOnClickListener { v ->
-            v.animate().scaleX(.97f).scaleY(.97f).alpha(.82f).setDuration(80).withEndAction {
-                v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start()
-                click()
-            }.start()
-        }
+        setTextColor(if (primary) Color.rgb(5, 15, 18) else Color.WHITE)
+        background = rounded(if (primary) accent else panel2, 14f, if (primary) accent else border)
+        setOnClickListener { click() }
     }
 
     private fun rounded(fill: Int, radius: Float, stroke: Int) = GradientDrawable().apply {

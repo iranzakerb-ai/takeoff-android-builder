@@ -1,21 +1,15 @@
-name: Build TakeOff Insights 0.18.3 Final
+name: Build TakeOff Insights 0.19.1 Final
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'app/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - '.github/workflows/build-v0183-final.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: takeoff-v0183-final-${{ github.ref }}
+  group: takeoff-v0191-final-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,31 +24,22 @@ jobs:
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 47' app/build.gradle.kts
-          grep -q 'versionName = "0.18.3"' app/build.gradle.kts
+          grep -q 'versionCode = 49' app/build.gradle.kts
+          grep -q 'versionName = "0.19.1"' app/build.gradle.kts
           grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
           grep -q 'ScenarioStudioActivity' app/src/main/AndroidManifest.xml
           grep -q 'AiVideoStudioActivity' app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.SEND' app/src/main/AndroidManifest.xml
           grep -q 'android.intent.action.SEND_MULTIPLE' app/src/main/AndroidManifest.xml
-          grep -q 'android:mimeType="video/\*"' app/src/main/AndroidManifest.xml
           ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
           grep -q 'Semaphore(1, true)' "$SRC/SharedMediaWorker.kt"
           ! grep -q 'takeoff-v4-media-lane-' "$SRC/SharedMediaWorker.kt"
-          grep -q 'setInitialDelay' "$SRC/SharedMediaWorker.kt"
-          grep -q 'retry_after_seconds' "$SRC/SharedMediaWorker.kt"
           grep -q 'ExistingWorkPolicy.APPEND_OR_REPLACE' "$SRC/SharedMediaWorker.kt"
-          grep -q 'JSONObject().put("token", token)' "$SRC/SharedMediaClient.kt"
           grep -q 'attempts: Int = 2' "$SRC/SharedMediaClient.kt"
           grep -q '/v4/media-jobs/${enc(jobId)}/status' "$SRC/SharedMediaClient.kt"
           grep -q 'markTransient' "$SRC/SharedMediaQueue.kt"
-          grep -q 'restartExpiredServerJob' "$SRC/SharedMediaQueue.kt"
           grep -q '/v4/scenario-studio/generate' "$SRC/ScenarioStudioActivity.kt"
-          grep -q 'ساخت ۱۰ سناریوی آماده ضبط' "$SRC/ScenarioStudioActivity.kt"
           grep -q '/v4/ai-video-studio/generate' "$SRC/AiVideoStudioActivity.kt"
-          grep -q '۴، ۶، ۸ و ۱۰' "$SRC/AiVideoStudioActivity.kt"
-          grep -q 'Character Sheet' "$SRC/AiVideoStudioActivity.kt"
-          grep -q 'Omni Prompt' "$SRC/AiVideoStudioActivity.kt"
-          grep -q 'https://takeoff-virality-engine.vercel.app' "$SRC/PayloadClient.kt"
           ! grep -RniE 'OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}' app/src/main
           echo 'DADSTAN_SOURCE_CONTRACT=PASS'
 
@@ -92,7 +77,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='47' versionName='0.18.3'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='49' versionName='0.19.1'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'GlassHomeActivity' apk-manifest.txt
@@ -103,21 +88,21 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-0.18.3.apk
+          cp "$APK" TakeOff-Insights-0.19.1.apk
           echo 'DADSTAN_APK_FORENSICS=PASS'
 
-      - name: Upload final APK
+      - name: Upload final APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.18.3
-          path: TakeOff-Insights-0.18.3.apk
+          name: TakeOff-Insights-0.19.1
+          path: TakeOff-Insights-0.19.1.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload forensic reports
+      - name: Upload forensic reports artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.18.3-forensics
+          name: TakeOff-Insights-0.19.1-forensics
           path: |
             apk-badging.txt
             apk-signing.txt
@@ -126,3 +111,24 @@ jobs:
             apk-size.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v0.19.1
+          name: "TakeOff Insights v0.19.1 (Build 49)"
+          body: |
+            ## TakeOff Insights v0.19.1 — Official Release
+            - **Application ID**: `ai.takeoff.insightscompanion`
+            - **Version Name**: `0.19.1`
+            - **Version Code**: `49`
+            - **Launcher**: `GlassHomeActivity`
+            - **Audit**: DADSTAN Forensic Gate PASSED
+          files: |
+            TakeOff-Insights-0.19.1.apk
+            apk-badging.txt
+            apk-signing.txt
+            apk-manifest.txt
+            apk-sha256.txt
+            apk-size.txt

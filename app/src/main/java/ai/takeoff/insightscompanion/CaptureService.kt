@@ -160,7 +160,7 @@ class CaptureService : Service() {
             val prefs = getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
             val endpoint = prefs.getString("endpoint", "").orEmpty()
             val key = SecretStore(this).get("api_key").orEmpty()
-            if (jpeg.isNullOrEmpty() || endpoint.isBlank() || key.isBlank() || !serverFallbackStarted.compareAndSet(false, true)) {
+            if (jpeg == null || jpeg.isEmpty() || endpoint.isBlank() || key.isBlank() || !serverFallbackStarted.compareAndSet(false, true)) {
                 finishRejected(fallbackMessage); return
             }
             updateNotification("OCR محلی کافی نبود؛ تحلیل فارسی امن روی سرور در حال اجراست…")
