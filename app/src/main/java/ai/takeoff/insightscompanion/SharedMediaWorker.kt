@@ -18,19 +18,19 @@ import java.io.File
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
+private val MEDIA_TERMINAL_STATUSES = setOf("completed", "dead_letter", "needs_media", "partial")
+
 class SharedMediaRecoveryWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val localId = inputData.getString("local_id").orEmpty()
         val item = SharedMediaQueue(applicationContext).get(localId) ?: return Result.success()
-        if (item.status !in setOf("completed", "dead_letter")) SharedMediaWork.enqueue(applicationContext, item)
+        if (item.status !in MEDIA_TERMINAL_STATUSES) SharedMediaWork.enqueue(applicationContext, item)
         return Result.success()
     }
 }
 
 class SharedMediaWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     companion object {
-        // The expensive multimodal provider is intentionally single-flight on one
-        // phone process. Resolve/download stages of other jobs remain independent.
         private val AI_ANALYSIS_GATE = Semaphore(1, true)
     }
 
@@ -39,14 +39,12 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
         if (localId.isBlank()) return@withContext Result.failure()
         val queue = SharedMediaQueue(applicationContext)
         var item = queue.get(localId) ?: return@withContext Result.success()
-        if (item.status == "completed") return@withContext Result.success()
+        if (item.status in MEDIA_TERMINAL_STATUSES) return@withContext Result.success()
 
         val prefs = applicationContext.getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
         val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty())
         val companionKey = SecretStore(applicationContext).get("api_key").orEmpty()
 
-        // Preserve the highest-fidelity direct-upload path when Android actually
-        // received the Reel bytes and this installation has a paired credential.
         val mediaPath = item.localMediaPath
         if (!mediaPath.isNullOrBlank() && companionKey.isNotBlank()) {
             val file = File(mediaPath)
@@ -60,7 +58,7 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                 if (start.code !in 200..299 || start.body == null) {
                     val terminal = start.code in 400..499 && start.code !in listOf(408, 425, 429)
                     queue.fail(localId, "HTTP ${start.code}: ${safeDetail(start.raw, start.body)}", terminal)
-                    if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                    if (!terminal) queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
                     return@withContext Result.success()
                 }
                 item = queue.attachServerJob(localId, start.body) ?: return@withContext Result.success()
@@ -72,10 +70,15 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
             var steps = 0
             while (steps < 6) {
                 item = queue.get(localId) ?: return@withContext Result.success()
+                if (item.status in MEDIA_TERMINAL_STATUSES) {
+                    SharedMediaWork.cancelWatchdog(applicationContext, localId)
+                    return@withContext Result.success()
+                }
                 val jobId = item.jobId.orEmpty()
                 val token = item.pollToken.orEmpty()
                 if (jobId.isBlank() || token.isBlank()) {
                     queue.fail(localId, "server_job_token_missing", true)
+                    SharedMediaWork.cancelWatchdog(applicationContext, localId)
                     return@withContext Result.success()
                 }
 
@@ -95,19 +98,19 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                     )
                     if (expired) {
                         val recovered = queue.restartExpiredServerJob(localId)
-                        if (recovered?.status == "queued") SharedMediaWork.enqueueContinuation(applicationContext, recovered, 1)
+                        if (recovered?.status == "queued") SharedMediaWork.enqueueContinuation(applicationContext, recovered, 5)
                         else queue.fail(localId, "token_restart_exhausted", true)
                         return@withContext Result.success()
                     }
                     if (processed.code in 500..599 || processed.code in listOf(408, 425, 429)) {
                         val wait = processed.body?.optInt("retry_after_seconds", 15)?.coerceIn(5, 90) ?: 15
                         queue.markTransient(localId, "HTTP ${processed.code}: $detail")
-                        queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, wait) }
+                        queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, wait) }
                         return@withContext Result.success()
                     }
                     val terminal = processed.code in 400..499
                     queue.fail(localId, "HTTP ${processed.code}: $detail", terminal)
-                    if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                    if (!terminal) queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
                     return@withContext Result.success()
                 }
 
@@ -122,16 +125,16 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                 if (processed.body.optBoolean("retryable", false)) {
                     val wait = processed.body.optInt("retry_after_seconds", 8).coerceIn(5, 90)
                     queue.markTransient(localId, processed.body.optString("error_code", "provider_backoff"))
-                    SharedMediaWork.enqueueContinuation(applicationContext, queue.get(localId) ?: updated, wait)
+                    queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, wait) }
                     return@withContext Result.success()
                 }
                 steps++
             }
-            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 1) }
+            queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 5) }
             Result.success()
         } catch (error: Exception) {
             queue.markTransient(localId, error.javaClass.simpleName)
-            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+            queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
             Result.success()
         }
     }
@@ -146,7 +149,7 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                 if (terminal) queue.fail(localId, "HTTP ${response.code}: ${safeDetail(response.raw, response.body)}", true)
                 else {
                     queue.markTransient(localId, "HTTP ${response.code}: ${safeDetail(response.raw, response.body)}")
-                    queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+                    queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
                 }
                 Result.success()
             } else {
@@ -162,7 +165,7 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
             }
         } catch (error: Exception) {
             queue.markTransient(localId, error.javaClass.simpleName)
-            queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
+            queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
             Result.success()
         }
     }
@@ -193,24 +196,24 @@ object SharedMediaWork {
         .addTag("takeoff-v4-watchdog").addTag("takeoff-v4-watchdog-${item.localId}").build()
 
     fun enqueue(context: Context, item: SharedMediaQueue.Item) {
-        if (item.status in setOf("completed", "dead_letter")) return
+        if (item.status in MEDIA_TERMINAL_STATUSES) return
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             "takeoff-v4-media-${item.localId}", ExistingWorkPolicy.KEEP, request(item),
         )
     }
 
     fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item, delaySeconds: Int = 0) {
-        if (item.status in setOf("completed", "dead_letter")) return
+        if (item.status in MEDIA_TERMINAL_STATUSES) return
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             "takeoff-v4-media-${item.localId}", ExistingWorkPolicy.APPEND_OR_REPLACE, request(item, delaySeconds),
         )
     }
 
     fun revive(context: Context, item: SharedMediaQueue.Item) {
-        if (item.status !in setOf("completed", "dead_letter")) { enqueue(context, item); scheduleWatchdog(context, item) }
+        if (item.status !in MEDIA_TERMINAL_STATUSES) { enqueue(context, item); scheduleWatchdog(context, item) }
     }
     fun scheduleWatchdog(context: Context, item: SharedMediaQueue.Item) {
-        if (item.status in setOf("completed", "dead_letter")) return
+        if (item.status in MEDIA_TERMINAL_STATUSES) return
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork("takeoff-v4-watchdog-${item.localId}", ExistingWorkPolicy.REPLACE, watchdogRequest(item))
     }
     fun cancelWatchdog(context: Context, localId: String) { WorkManager.getInstance(context.applicationContext).cancelUniqueWork("takeoff-v4-watchdog-$localId") }
