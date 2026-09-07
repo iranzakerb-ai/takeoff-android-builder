@@ -31,6 +31,8 @@ class SharedMediaQueue(context: Context) {
     companion object {
         private const val KEY = "shared_media_learning_queue_v1"
         private val LOCK = Any()
+        private val TERMINAL = setOf("completed", "dead_letter", "needs_media", "partial")
+        private val MEDIA_REQUIRED_ERRORS = setOf("media_url_unavailable", "media_download_failed", "instagram_direct_media_url_unavailable")
         private val urlRegex = Regex("https?://(?:www\\.)?instagram\\.com/(?:reel|reels|p)/[A-Za-z0-9_-]+(?:/[^\\s]*)?", RegexOption.IGNORE_CASE)
 
         fun extractUrls(text: String): List<String> = urlRegex.findAll(text)
@@ -121,22 +123,28 @@ class SharedMediaQueue(context: Context) {
 
     fun updateServerState(localId: String, root: JSONObject): Item? = mutate(localId) { obj ->
         val currentStatus = obj.optString("status", "processing")
-        val incomingStatus = root.optString("status", currentStatus)
+        val rawIncomingStatus = root.optString("status", currentStatus)
+        val errorCode = root.optString("error_code")
+        val recovery = root.optBoolean("retryable", false)
+        val incomingStatus = when {
+            rawIncomingStatus == "failed" && !recovery && errorCode in MEDIA_REQUIRED_ERRORS -> "needs_media"
+            rawIncomingStatus == "failed" && !recovery -> "dead_letter"
+            else -> rawIncomingStatus
+        }
         val currentProgress = obj.optInt("progress", 0).coerceIn(0, 100)
         val incomingProgress = root.optInt("progress", root.optInt("overall_progress_percent", currentProgress)).coerceIn(0, 100)
-        val currentTerminal = currentStatus in setOf("completed", "dead_letter")
-        val incomingTerminal = incomingStatus in setOf("completed", "dead_letter")
-        val recovery = root.optBoolean("retryable", false)
+        val currentTerminal = currentStatus in TERMINAL
+        val incomingTerminal = incomingStatus in TERMINAL
         if ((currentTerminal && !incomingTerminal) || (!recovery && !incomingTerminal && incomingProgress < currentProgress)) {
             root.optString("poll_token").takeIf { it.isNotBlank() }?.let { obj.put("poll_token", it) }
             return@mutate
         }
         obj.put("status", incomingStatus)
-            .put("stage", root.optString("display_stage", root.optString("stage", obj.optString("stage", "processing"))))
+            .put("stage", if (incomingStatus == "needs_media") "media_required" else root.optString("display_stage", root.optString("stage", obj.optString("stage", "processing"))))
             .put("progress", if (recovery) maxOf(currentProgress, incomingProgress) else incomingProgress)
         root.optString("poll_token").takeIf { it.isNotBlank() }?.let { obj.put("poll_token", it) }
         root.optString("media_kind").takeIf { it.isNotBlank() }?.let { obj.put("media_kind", it) }
-        val ec = root.optString("error_code"); if (ec.isNotBlank()) obj.put("error", ec) else obj.remove("error")
+        if (errorCode.isNotBlank()) obj.put("error", errorCode) else obj.remove("error")
         root.optJSONObject("result")?.let { result ->
             obj.put("result_json", result.toString())
             result.optString("evidence_id").takeIf { it.isNotBlank() }?.let { obj.put("evidence_id", it) }
@@ -145,7 +153,7 @@ class SharedMediaQueue(context: Context) {
     }
 
     fun markTransient(localId: String, error: String): Item? = mutate(localId) { obj ->
-        if (obj.optString("status") !in setOf("completed", "dead_letter")) { obj.put("status", "processing"); obj.put("error", error.take(180)) }
+        if (obj.optString("status") !in TERMINAL) { obj.put("status", "processing"); obj.put("error", error.take(180)) }
     }
 
     fun restartExpiredServerJob(localId: String): Item? = mutate(localId) { obj ->
