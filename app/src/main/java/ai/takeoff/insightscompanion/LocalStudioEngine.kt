@@ -225,9 +225,9 @@ object LocalStudioEngine {
             if (isShort) {
                 scenes.put(JSONObject().apply {
                     put("number", 1)
-                    put("start_seconds", 0.0)
-                    put("end_seconds", 15.0)
-                    put("duration_seconds", 15.0)
+                    put("start_seconds", 0)
+                    put("end_seconds", 15)
+                    put("duration_seconds", 15)
                     put("purpose", "قلاب، پیام محوری و دعوت به اقدام بدون وقفه")
                     put("shot", "مدیوم‌کلوزآپ متحرک با چرخش نرم زاویه")
                     put("action", "ورود سریع، نشان دادن مسئله و ارائه فوری $cleanOffer با نمایش متن روی تصویر")
@@ -260,6 +260,7 @@ object LocalStudioEngine {
             }
 
             scenarioList.put(JSONObject().apply {
+                put("id", rank)
                 put("rank", rank)
                 put("title", title)
                 put("core_idea", "حل دغدغه اساسی در $cleanNiche از طریق رویکردی مستند و قابل سنجش")
@@ -271,6 +272,8 @@ object LocalStudioEngine {
                 put("actor_count", actorCount)
                 put("actor_justification", "نیاز به ارتباط چهره‌به‌چهره واقعی با مخاطب جهت جلب اعتماد بالا")
                 put("hook", hookObj)
+                put("hook_spoken", hookObj.getString("spoken"))
+                put("hook_visual", hookObj.getString("visual"))
                 put("scenes", scenes)
                 put("payoff", "دستیابی به راه‌حل شفاف و پایان دادن به سردرگمی مشتریان")
                 put("cta", "همین حالا برای مشاوره تخصصی در دایرکت پیام دهید یا ویدیو را سیو کنید.")
