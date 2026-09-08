@@ -1,17 +1,24 @@
 package ai.takeoff.insightscompanion
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.*
 import android.widget.*
 import org.json.*
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 class ScenarioStudioActivity : Activity() {
     private lateinit var niche: EditText
@@ -25,14 +32,51 @@ class ScenarioStudioActivity : Activity() {
     private lateinit var results: LinearLayout
     private lateinit var generate: Button
     private var packageJson: JSONObject? = null
+    private var activeTaskId: String? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            val taskId = activeTaskId ?: return
+            val entry = StudioResultStore(this@ScenarioStudioActivity).get(taskId)
+            if (entry != null) {
+                if (entry.status == "completed" && !entry.resultJson.isNullOrBlank()) {
+                    generate.isEnabled = true
+                    runCatching { JSONObject(entry.resultJson!!) }.getOrNull()?.let {
+                        packageJson = it
+                        renderPackage(it)
+                    }
+                    return
+                } else if (entry.status == "failed") {
+                    generate.isEnabled = true
+                    showError(entry.errorMessage ?: "فرآیند تولید سناریوها متوقف شد.")
+                    return
+                }
+            }
+            mainHandler.postDelayed(this, 2000)
+        }
+    }
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         LovableUi.applyWindow(this)
         setContentView(buildUi())
-        state?.getString("package")?.let {
-            runCatching { JSONObject(it) }.getOrNull()?.also { j -> packageJson = j; renderPackage(j) }
+
+        val fromTaskId = intent.getStringExtra("selected_task_id")
+        if (!fromTaskId.isNullOrBlank()) {
+            StudioResultStore(this).get(fromTaskId)?.resultJson?.let {
+                runCatching { JSONObject(it) }.getOrNull()?.also { j -> packageJson = j; renderPackage(j) }
+            }
+        } else {
+            state?.getString("package")?.let {
+                runCatching { JSONObject(it) }.getOrNull()?.also { j -> packageJson = j; renderPackage(j) }
+            }
         }
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(pollRunnable)
+        super.onDestroy()
     }
 
     override fun onSaveInstanceState(out: Bundle) {
@@ -55,7 +99,16 @@ class ScenarioStudioActivity : Activity() {
         }
 
         root.addView(LovableUi.run { card(true) }.apply {
-            addView(LovableUi.run { chip("✦ Scenario Studio V5", "primary") })
+            val topRow = LinearLayout(this@ScenarioStudioActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            topRow.addView(LovableUi.run { chip("✦ Scenario Studio V5", "primary") })
+            topRow.addView(View(this@ScenarioStudioActivity), LinearLayout.LayoutParams(0, 1, 1f))
+            topRow.addView(LovableUi.run { ghostButton("📂 آرشیو سناریوها") { showArchiveDialog() } }, LinearLayout.LayoutParams(-2, LovableUi.run { dp(36) }))
+            addView(topRow)
+
             addView(LovableUi.run { text("۱۰ سناریوی کامل، متمایز و آماده ضبط", 17f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(10) }, 0, 0) })
             addView(LovableUi.run { text("دو حالت داری: هوشمند چندسکانسه یا کوتاه ۱۵ ثانیه‌ای تک‌سکانسه. تیک‌آف قبل از ایده‌پردازی حافظه رفتاری همان حوزه را می‌خواند.", 12f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(7) }, 0, 0) })
         }, LovableUi.run { margin(bottom = 20) })
@@ -100,7 +153,7 @@ class ScenarioStudioActivity : Activity() {
             row.addView(LovableUi.run { text("قانون کارگردانی تیک‌آف", 12.5f, LovableUi.foreground, true) }, LinearLayout.LayoutParams(0, -2, 1f))
             row.addView(LovableUi.run { chip("پویا", "secondary") })
             addView(row)
-            addView(LovableUi.run { text("در حالت هوشمند، تعداد سکانس‌ها را روایت تعیین می‌کند. در حالت کوتاه، هر کدام از ۱۰ سناریو دقیقاً یک برداشت ۱۵ ثانیه‌ای است و تیک‌آف خودش تصمیم می‌گیرد دیالوگ لازم است یا فقط اکت، SFX و موسیقی.", 11.5f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(8) }, 0, 0) })
+            addView(LovableUi.run { text("تعداد سکانس هر سناریو بر اساس نیاز روایت تعیین می‌شود. در حالت هوشمند، تعداد سکانس‌ها را روایت تعیین می‌کند. در حالت کوتاه، هر کدام از ۱۰ سناریو دقیقاً یک برداشت ۱۵ ثانیه‌ای است و تیک‌آف خودش تصمیم می‌گیرد دیالوگ لازم است یا فقط اکت، SFX و موسیقی.", 11.5f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(8) }, 0, 0) })
         }, LovableUi.run { margin(bottom = 16) })
 
         generate = LovableUi.run { primaryButton("ساخت ۱۰ سناریوی آماده ضبط") { requestPackage() } }
@@ -117,15 +170,39 @@ class ScenarioStudioActivity : Activity() {
 
     private fun field(title: String, hint: String, lines: Int = 1) = EditText(this).apply {
         this.hint = "$title\n$hint"
-        setHintTextColor(LovableUi.muted)
-        setTextColor(LovableUi.foreground)
-        textSize = 13f
+        setHintTextColor(Color.rgb(107, 114, 128))
+        setTextColor(Color.rgb(17, 24, 39))
+        textSize = 13.5f
         gravity = Gravity.TOP or Gravity.START
         minLines = lines.coerceAtLeast(2)
         maxLines = maxOf(lines, 7)
         background = LovableUi.run { rounded(Color.WHITE, 18, LovableUi.border) }
         setPadding(LovableUi.run { dp(13) }, LovableUi.run { dp(11) }, LovableUi.run { dp(13) }, LovableUi.run { dp(11) })
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = LovableUi.run { dp(12) } }
+    }
+
+    private fun showArchiveDialog() {
+        val list = StudioResultStore(this).getByType("scenario").filter { it.status == "completed" }
+        if (list.isEmpty()) {
+            Toast.makeText(this, "هنوز سناریوی ذخیره‌شده‌ای وجود ندارد.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val titles = list.map { "${it.niche} (${it.mode}) • ${SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(Date(it.createdAt))}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("آرشیو سناریوهای ذخیره‌شده")
+            .setItems(titles) { _, which ->
+                val selected = list[which]
+                selected.resultJson?.let {
+                    runCatching {
+                        val obj = JSONObject(it)
+                        packageJson = obj
+                        renderPackage(obj)
+                        Toast.makeText(this, "سناریوهای «${selected.niche}» بارگذاری شد.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("بستن", null)
+            .show()
     }
 
     private fun requestPackage() {
@@ -138,13 +215,32 @@ class ScenarioStudioActivity : Activity() {
             3 -> "short_15s_silent"
             else -> "smart"
         }
+        val selectedActors = actors.selectedItemPosition + 1
         generate.isEnabled = false
-        status.text = if (selectedMode.startsWith("short_15s"))
-            "حافظه تیک‌آف ← طراحی ۱۰ ایده تک‌سکانسه ۱۵ ثانیه‌ای ← انتخاب دیالوگ/اکت و صدا ← داوری Retention…"
-        else
-            "شناخت کسب‌وکار ← بررسی حافظه تیک‌آف ← طراحی قلاب‌ها ← ساخت سناریوها ← داوری تنوع و Retention…"
+        status.text = "در حال تولید در پس‌زمینه... می‌توانید از اپ خارج شوید، نتیجه ذخیره و اعلان داده خواهد شد."
         status.setTextColor(LovableUi.primary)
         results.removeAllViews()
+
+        val taskId = UUID.randomUUID().toString()
+        activeTaskId = taskId
+
+        val entry = StudioEntry(
+            id = taskId,
+            type = "scenario",
+            mode = selectedMode,
+            title = n,
+            niche = n,
+            description = d,
+            targetAudience = audience.text.toString().trim(),
+            mainOffer = offer.text.toString().trim(),
+            constraints = constraints.text.toString().trim(),
+            actorCount = selectedActors,
+            status = "processing",
+        )
+        StudioResultStore(this).save(entry)
+        StudioTaskWork.enqueue(this, taskId)
+        mainHandler.postDelayed(pollRunnable, 2000)
+
         val transportDescription = if (d.length < 10) d.padEnd(10, ' ') else d
         val body = JSONObject().apply {
             put("niche", n)
@@ -152,24 +248,25 @@ class ScenarioStudioActivity : Activity() {
             put("audience", audience.text.toString().trim())
             put("offer", offer.text.toString().trim())
             put("production_constraints", constraints.text.toString().trim())
-            put("actors_available", actors.selectedItemPosition + 1)
+            put("actors_available", selectedActors)
             put("mode", selectedMode)
         }
+
         Thread {
             val response = runCatching { post(body) }.getOrElse { 0 to "" }
             runOnUiThread {
-                generate.isEnabled = true
                 if (response.first in 200..299) {
                     runCatching { JSONObject(response.second) }.getOrNull()?.let {
                         packageJson = it
+                        StudioResultStore(this@ScenarioStudioActivity).update(taskId) { current ->
+                            current.copy(status = "completed", resultJson = it.toString(), errorMessage = null)
+                        }
+                        generate.isEnabled = true
+                        mainHandler.removeCallbacks(pollRunnable)
                         val prefs = getSharedPreferences("takeoff_scenario_stats", Context.MODE_PRIVATE)
                         prefs.edit().putInt("generated", prefs.getInt("generated", 0) + it.optJSONArray("scenarios")?.length().orZero()).apply()
                         renderPackage(it)
-                    } ?: showError("پاسخ سرور قابل خواندن نبود.")
-                } else if (response.first == 422) {
-                    showError("اطلاعات ورودی با قرارداد سرور هماهنگ نبود؛ دوباره تلاش کن.")
-                } else {
-                    showError(if (response.first == 401) "اتصال امن دستگاه را در کنسول تنظیم کن." else "بسته کامل تأیید نشد؛ خروجی ناقص تحویل داده نشد. (کد ${response.first})")
+                    }
                 }
             }
         }.start()
@@ -209,13 +306,14 @@ class ScenarioStudioActivity : Activity() {
 
     private fun renderPackage(root: JSONObject) {
         val items = root.optJSONArray("scenarios") ?: JSONArray()
-        val isShort = root.optString("mode") == "short_15s"
+        val isShort = root.optString("mode") == "short_15s" || root.optString("mode") == "short_15s_silent"
         status.text = if (isShort)
             "بسته ${LovableUi.fa(items.length())} سناریوی تک‌سکانسه آماده است • هر سناریو ۱۵ ثانیه"
         else
             "بسته ${LovableUi.fa(items.length())} سناریویی آماده است • شواهد حافظه: ${LovableUi.fa(root.optInt("memory_evidence_count"))}"
         status.setTextColor(LovableUi.success)
         results.removeAllViews()
+
         val pdfActionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -263,7 +361,7 @@ class ScenarioStudioActivity : Activity() {
             }, LovableUi.run { margin(bottom = 8) })
         }
         val scroll = ScrollView(this).apply { addView(host) }
-        android.app.AlertDialog.Builder(this).setTitle(s.optString("title")).setView(scroll).setPositiveButton("بستن", null).show()
+        AlertDialog.Builder(this).setTitle(s.optString("title")).setView(scroll).setPositiveButton("بستن", null).show()
     }
 
     private fun exportPdfDirectly(root: JSONObject, shareAfter: Boolean) {
@@ -282,116 +380,13 @@ class ScenarioStudioActivity : Activity() {
         }.start()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == PDF_REQUEST && resultCode == RESULT_OK) data?.data?.let { writePdf(it) }
-    }
-
-    private fun writePdf(uri: Uri) {
-        val root = packageJson ?: return
-        runCatching {
-            val pdf = PdfDocument()
-            val items = root.optJSONArray("scenarios") ?: JSONArray()
-            var pageNo = 1
-            val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(43, 36, 31); textSize = 11.5f; typeface = Typeface.create("sans-serif", Typeface.NORMAL); textAlign = Paint.Align.RIGHT }
-            val strongPaint = Paint(bodyPaint).apply { typeface = Typeface.create("sans-serif", Typeface.BOLD); color = Color.rgb(31, 38, 46) }
-            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 19f; typeface = Typeface.create("sans-serif", Typeface.BOLD); textAlign = Paint.Align.RIGHT }
-            fun newPage(title: String): Pair<PdfDocument.Page, Float> {
-                val info = PdfDocument.PageInfo.Builder(595, 842, pageNo).create()
-                val page = pdf.startPage(info)
-                val c = page.canvas
-                c.drawColor(Color.WHITE)
-                val header = Paint().apply { shader = LinearGradient(0f, 0f, 595f, 72f, Color.rgb(255, 126, 46), LovableUi.primaryDeep, Shader.TileMode.CLAMP) }
-                c.drawRect(0f, 0f, 595f, 76f, header)
-                c.drawText(title, 555f, 45f, titlePaint)
-                val footer = Paint(bodyPaint).apply { color = Color.rgb(105, 119, 136); textSize = 9f; textAlign = Paint.Align.CENTER }
-                c.drawText("TakeOff Scenario Studio • صفحه $pageNo", 297.5f, 826f, footer)
-                pageNo++
-                return page to 104f
-            }
-            fun writeScenario(title: String, lines: List<Pair<String, Boolean>>) {
-                var pair = newPage(title)
-                var page = pair.first
-                var y = pair.second
-                for ((raw, bold) in lines) {
-                    val wrapped = wrap(raw, 78).ifEmpty { listOf(" ") }
-                    for (line in wrapped) {
-                        if (y > 790f) { pdf.finishPage(page); pair = newPage("$title • ادامه"); page = pair.first; y = pair.second }
-                        page.canvas.drawText(line, 555f, y, if (bold) strongPaint else bodyPaint)
-                        y += if (bold) 20f else 17f
-                    }
-                    y += if (bold) 4f else 2f
-                }
-                pdf.finishPage(page)
-            }
-            writeScenario("استودیو سناریو تیک‌آف", listOf(
-                "بسته کامل آماده ضبط" to true,
-                ("حوزه: " + root.optJSONObject("brief")?.optString("niche").orEmpty()) to false,
-                ("تعداد سناریو: " + items.length()) to false,
-                ("شواهد حافظه استفاده‌شده: " + root.optInt("memory_evidence_count")) to false,
-                root.optString("scientific_notice") to false,
-            ))
-            for (i in 0 until items.length()) {
-                val s = items.getJSONObject(i)
-                val hook = s.optJSONObject("hook") ?: JSONObject()
-                val lines = mutableListOf<Pair<String, Boolean>>()
-                lines += "مشخصات اجرا" to true
-                lines += ("مدت: ${s.optInt("total_duration_seconds")} ثانیه | بازیگر: ${s.optInt("actor_count")} | سکانس: ${s.optInt("scene_count")} | امتیاز خلاقه: ${s.optInt("viral_potential_score")}/100") to false
-                lines += ("فرمت: " + s.optString("format_family")) to false
-                lines += ("نقش‌ها: " + jsonArrayText(s.optJSONArray("actor_roles"))) to false
-                lines += ("دلیل تعداد بازیگر: " + s.optString("actor_justification")) to false
-                lines += "ایده و قلاب" to true
-                lines += ("ایده: " + s.optString("core_idea")) to false
-                lines += ("قلاب گفتاری: " + hook.optString("spoken")) to false
-                lines += ("قلاب تصویری: " + hook.optString("visual")) to false
-                lines += ("متن روی تصویر: " + hook.optString("onscreen_text")) to false
-                lines += ("معماری نگهداشت: " + s.optString("retention_architecture")) to false
-                val scenes = s.optJSONArray("scenes") ?: JSONArray()
-                for (j in 0 until scenes.length()) {
-                    val x = scenes.getJSONObject(j)
-                    lines += ("سکانس ${j + 1} • ${x.optDouble("start_seconds")} تا ${x.optDouble("end_seconds")} ثانیه") to true
-                    lines += ("هدف: " + x.optString("purpose")) to false
-                    lines += ("تصویر/اکشن: " + x.optString("action")) to false
-                    lines += ("دیالوگ: " + x.optString("dialogue").ifBlank { "بدون دیالوگ" }) to false
-                    lines += ("شات و دوربین: " + x.optString("shot") + " | " + x.optString("camera")) to false
-                    lines += ("متن/صدا/کات: " + x.optString("onscreen_text") + " | " + x.optString("audio_sfx") + " | " + x.optString("edit_transition")) to false
-                }
-                lines += "پایان و کنترل ضبط" to true
-                lines += ("Payoff: " + s.optString("payoff")) to false
-                lines += ("CTA: " + s.optString("cta")) to false
-                lines += ("ریسک ضبط: " + s.optString("production_risks")) to false
-                lines += ("پلن جایگزین: " + s.optString("fallback_plan")) to false
-                writeScenario(s.optInt("rank").toString() + " • " + s.optString("title"), lines)
-            }
-            contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) } ?: error("output")
-            pdf.close()
-        }.onSuccess { Toast.makeText(this, "PDF کامل فارسی ذخیره شد.", Toast.LENGTH_LONG).show() }
-            .onFailure { Toast.makeText(this, "ذخیره PDF انجام نشد.", Toast.LENGTH_LONG).show() }
-    }
-
-    private fun jsonArrayText(array: JSONArray?): String {
-        if (array == null) return ""
-        val out = mutableListOf<String>()
-        for (i in 0 until array.length()) out += array.optString(i)
-        return out.filter { it.isNotBlank() }.joinToString("، ")
-    }
-
-    private fun wrap(value: String, max: Int): List<String> {
-        val words = value.replace("\n", " ").split(Regex("\\s+"))
-        val out = mutableListOf<String>()
-        var line = ""
-        for (word in words) {
-            if ((line + " " + word).trim().length > max && line.isNotBlank()) { out += line; line = word }
-            else line = (line + " " + word).trim()
-        }
-        if (line.isNotBlank()) out += line
-        return out
-    }
-
     private fun showError(value: String) {
         status.text = value
         status.setTextColor(LovableUi.danger)
     }
 
-    companion object { private const val PDF_REQUEST = 901 }
+    companion object {
+        private const val PDF_REQUEST = 901
+        private const val DEFAULT_PDF_NAME = "TakeOff-Scenario-Studio.pdf"
+    }
 }

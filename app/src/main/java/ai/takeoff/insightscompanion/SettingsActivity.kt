@@ -41,6 +41,9 @@ class SettingsActivity : Activity() {
         root.addView(settingRow("صف تحلیل", "مشاهده وضعیت، Retry و گزارش کامل") { startActivity(Intent(this, ViralShareActivity::class.java)) }, LovableUi.run { margin(bottom = 8) })
         root.addView(settingRow("استودیوی سناریو", "۱۰ سناریوی آماده ضبط واقعی از حافظه V5") { startActivity(Intent(this, ScenarioStudioActivity::class.java)) }, LovableUi.run { margin(bottom = 8) })
         root.addView(settingRow("استودیوی ویدیوی AI", "Character Sheet + پرامپت کامل Omni برای هر سکانس") { startActivity(Intent(this, AiVideoStudioActivity::class.java)) }, LovableUi.run { margin(bottom = 8) })
+        root.addView(settingRow("آرشیو نتایج سناریوها و هوش مصنوعی", "دسترسی مستقیم به سناریوهای ذخیره‌شده، ویدیوهای ۱۰ ثانیه‌ای و پرامپت‌ها") {
+            startActivity(Intent(this, SavedActivity::class.java).apply { putExtra("filter", "studios") })
+        }, LovableUi.run { margin(bottom = 8) })
 
         root.addView(LovableUi.run { sectionTitle("درباره این نسخه") }, LovableUi.run { margin(bottom = 10, top = 14) })
         root.addView(LovableUi.run { card() }.apply {
