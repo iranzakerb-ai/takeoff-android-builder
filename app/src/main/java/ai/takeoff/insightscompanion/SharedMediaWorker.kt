@@ -33,11 +33,13 @@ class SharedMediaRecoveryWorker(
 
 class SharedMediaWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     companion object {
-        // Free-tier Gemini is the expensive shared bottleneck. Keep download,
-        // resolve and bookkeeping jobs independent/concurrent, but run exactly one
-        // heavy multimodal provider request from this process at a time.
+        // Keep 5 parallel lanes for download, resolve and queue progress, but gate
+        // heavy multimodal provider requests with Semaphore(1, true) to prevent 429 quota limits.
         private val AI_ANALYSIS_GATE = Semaphore(1, true)
     }
+
+    private fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item, wait: Int) =
+        SharedMediaWork.enqueueContinuation(context, item, wait)
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val localId = inputData.getString("local_id").orEmpty()
@@ -117,18 +119,22 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
 
                 val updated = queue.updateServerState(localId, processed.body)
                 when (updated?.status) {
-                    "completed", "dead_letter", "needs_media", "partial" -> {
+                    "completed" -> {
+                        SharedMediaWork.cancelWatchdog(applicationContext, localId)
+                        val promo = updated.resultJson?.let { runCatching { JSONObject(it).optString("promotion_status") }.getOrNull() } ?: "COMPLETED"
+                        SharedMediaNotifier.notifyReelCompleted(applicationContext, updated.shortcode, promo)
+                        return@withContext Result.success()
+                    }
+                    "dead_letter", "needs_media", "partial" -> {
                         SharedMediaWork.cancelWatchdog(applicationContext, localId)
                         return@withContext Result.success()
                     }
                     null -> return@withContext Result.success()
                 }
                 if (processed.body.optBoolean("retryable", false)) {
-                    val wait = processed.body.optInt("retry_after_seconds", 8).coerceIn(5, 90)
+                    val wait = processed.body.optInt("retry_after_seconds", 8)
                     queue.markTransient(localId, processed.body.optString("error_code", "provider_backoff"))
-                    queue.get(localId)?.takeIf { it.status !in MEDIA_TERMINAL_STATUSES }?.let {
-                        SharedMediaWork.enqueueContinuation(applicationContext, it, wait)
-                    }
+                    enqueueContinuation(applicationContext, queue.get(localId) ?: updated, wait)
                     return@withContext Result.success()
                 }
                 steps++
@@ -184,11 +190,55 @@ object SharedMediaWork {
 
     fun enqueue(context: Context, item: SharedMediaQueue.Item) {
         if (item.status in MEDIA_TERMINAL_STATUSES) return
+        SharedMediaNotifier.notifyReelReceived(context, item.shortcode, item.url)
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             "takeoff-v4-media-${item.localId}",
             ExistingWorkPolicy.KEEP,
             request(item),
         )
+    }
+
+    fun syncRemoteEvidence(context: Context) {
+        val appContext = context.applicationContext
+        val prefs = appContext.getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
+        val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty())
+        val queue = SharedMediaQueue(appContext)
+
+        Thread {
+            try {
+                val conn = java.net.URL("$endpoint/v4/media-evidence?limit=15").openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 15_000
+                if (conn.responseCode in 200..299) {
+                    val raw = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val array = org.json.JSONArray(raw)
+                    val existingUrls = queue.all().map { it.url }.toSet()
+                    val existingShortcodes = queue.all().map { it.shortcode }.toSet()
+
+                    for (i in 0 until array.length()) {
+                        val itemObj = array.optJSONObject(i) ?: continue
+                        val sourceUrl = itemObj.optString("source_url")
+                        val shortcode = itemObj.optString("shortcode")
+                        val promo = itemObj.optString("promotion_status", "PROMOTE")
+                        if (sourceUrl.isBlank() || shortcode.isBlank()) continue
+
+                        if (sourceUrl !in existingUrls && shortcode !in existingShortcodes) {
+                            val enqueued = queue.enqueue(sourceUrl, "عمومی", null)
+                            queue.mutate(enqueued.localId) {
+                                it.put("status", "completed")
+                                it.put("stage", "completed")
+                                it.put("progress", 100)
+                                it.put("result", itemObj)
+                            }
+                            SharedMediaNotifier.notifyReelReceived(appContext, shortcode, sourceUrl)
+                            SharedMediaNotifier.notifyReelCompleted(appContext, shortcode, promo)
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }.start()
     }
 
     fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item, delaySeconds: Int = 0) {

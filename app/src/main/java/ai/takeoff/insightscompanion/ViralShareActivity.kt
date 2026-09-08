@@ -63,6 +63,7 @@ class ViralShareActivity : Activity() {
         resumed = true
         queue.all().filter { it.status in setOf("queued", "submitting", "processing", "failed") }
             .forEach { SharedMediaWork.revive(this, it) }
+        SharedMediaWork.syncRemoteEvidence(this)
         handler.removeCallbacks(ticker)
         handler.post(ticker)
     }
@@ -92,7 +93,7 @@ class ViralShareActivity : Activity() {
         }
         root.addView(LovableUi.run { card(true) }.apply {
             val row = LinearLayout(this@ViralShareActivity).apply { orientation = LinearLayout.HORIZONTAL; layoutDirection = View.LAYOUT_DIRECTION_RTL; gravity = Gravity.CENTER_VERTICAL }
-            row.addView(LovableUi.run { chip("۳ Lane همزمان", "secondary") })
+            row.addView(LovableUi.run { chip("۵ فرآیند همزمان (۵ Lane)", "secondary") })
             summary = LovableUi.run { text("در حال خواندن صف…", 12f, LovableUi.foreground, true) }
             row.addView(summary, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = LovableUi.run { dp(8) } })
             addView(row)

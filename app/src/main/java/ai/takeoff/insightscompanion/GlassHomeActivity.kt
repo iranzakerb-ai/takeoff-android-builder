@@ -36,6 +36,7 @@ class GlassHomeActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::queueSummary.isInitialized) refreshLocal()
+        SharedMediaWork.syncRemoteEvidence(this)
     }
 
     private fun buildUi(): View {

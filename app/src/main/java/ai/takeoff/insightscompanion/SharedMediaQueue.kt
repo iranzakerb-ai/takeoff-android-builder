@@ -61,7 +61,7 @@ class SharedMediaQueue(context: Context) {
         }
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
-        val lane = ((arr.length() % 3) + 3) % 3
+        val lane = ((arr.length() % 5) + 5) % 5
         val o = JSONObject()
             .put("local_id", id)
             .put("url", canonical)

@@ -42,6 +42,8 @@ class PendingWorker(appContext: Context, params: WorkerParameters) : Worker(appC
             return persisted
         }
 
+        SharedMediaWork.syncRemoteEvidence(applicationContext)
+
         return try {
             for ((accountIndex, account) in accounts.withIndex()) {
                 if (notified >= MAX_NOTIFICATIONS_PER_RUN) {

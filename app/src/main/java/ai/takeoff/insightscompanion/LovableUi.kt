@@ -21,6 +21,9 @@ import android.widget.TextView
 
 object LovableUi {
     // 3D Spatial Dark-Glass Palette
+    val legacyBackground = Color.rgb(252, 250, 247)
+    val legacyPrimary = Color.rgb(245, 104, 43)
+    val legacySecondary = Color.rgb(111, 218, 204)
     val background = Color.rgb(11, 15, 24)       // #0B0F18 Deep Midnight Slate
     val foreground = Color.rgb(243, 246, 252)    // #F3F6FC Radiant high-contrast Persian text
     val card = Color.rgb(19, 26, 42)             // #131A2A Frosted Obsidian Glass
