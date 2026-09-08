@@ -9,7 +9,11 @@ import android.graphics.Color
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -159,5 +163,18 @@ class StudioTaskWorker(
             .build()
 
         nm.notify(taskId.hashCode(), notif)
+    }
+}
+
+object StudioTaskWork {
+    fun enqueue(context: Context, taskId: String) {
+        val request = OneTimeWorkRequestBuilder<StudioTaskWorker>()
+            .setInputData(workDataOf("task_id" to taskId))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "studio_task_" + taskId,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 }

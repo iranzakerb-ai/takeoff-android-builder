@@ -81,31 +81,31 @@ class SavedActivity : Activity() {
         val studioStore = StudioResultStore(this)
         val mediaQueue = SharedMediaQueue(this)
 
-        val studioItems = studioStore.getAll()
-        val mediaItems = mediaQueue.getAll()
+        val studioItems: List<StudioEntry> = studioStore.getAll()
+        val mediaItems: List<SharedMediaQueue.Item> = mediaQueue.all()
 
         when (selectedTab) {
             0 -> {
-                studioItems.forEach { item ->
+                studioItems.forEach { item: StudioEntry ->
                     if (item.type == "scenario") contentContainer.addView(buildScenarioCard(item), LovableUi.run { margin(bottom = 12) })
                     else contentContainer.addView(buildAiVideoCard(item), LovableUi.run { margin(bottom = 12) })
                 }
-                mediaItems.forEach { item ->
+                mediaItems.forEach { item: SharedMediaQueue.Item ->
                     contentContainer.addView(buildMediaCard(item), LovableUi.run { margin(bottom = 12) })
                 }
             }
             1 -> {
-                studioItems.filter { it.type == "scenario" }.forEach { item ->
+                studioItems.filter { it.type == "scenario" }.forEach { item: StudioEntry ->
                     contentContainer.addView(buildScenarioCard(item), LovableUi.run { margin(bottom = 12) })
                 }
             }
             2 -> {
-                studioItems.filter { it.type == "ai_video" }.forEach { item ->
+                studioItems.filter { it.type == "ai_video" }.forEach { item: StudioEntry ->
                     contentContainer.addView(buildAiVideoCard(item), LovableUi.run { margin(bottom = 12) })
                 }
             }
             3 -> {
-                mediaItems.forEach { item ->
+                mediaItems.forEach { item: SharedMediaQueue.Item ->
                     contentContainer.addView(buildMediaCard(item), LovableUi.run { margin(bottom = 12) })
                 }
             }
