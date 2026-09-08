@@ -4,7 +4,7 @@ plugins {
 }
 
 val takeoffProductionEndpoint = providers.environmentVariable("TAKEOFF_PRODUCTION_ENDPOINT")
-    .orElse("https://takeoff-virality-engine.vercel.app").get().trim().trimEnd('/')
+    .orElse("https://takeoff-seven-puce.vercel.app").get().trim().trimEnd('/')
 val escapedTakeoffProductionEndpoint = takeoffProductionEndpoint.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {

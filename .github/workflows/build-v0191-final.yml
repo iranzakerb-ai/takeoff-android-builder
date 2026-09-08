@@ -16,6 +16,8 @@ jobs:
   dadstan-build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      TAKEOFF_PRODUCTION_ENDPOINT: https://takeoff-seven-puce.vercel.app
     steps:
       - uses: actions/checkout@v4
 

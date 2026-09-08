@@ -7,12 +7,22 @@ import java.net.URL
 import java.net.URLEncoder
 
 object PayloadClient {
+    private const val DEFAULT_PRODUCTION_ENDPOINT = "https://takeoff-seven-puce.vercel.app"
     private const val FALLBACK_PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.vercel.app"
     val PRODUCTION_ENDPOINT: String = BuildConfig.TAKEOFF_PRODUCTION_ENDPOINT
         .trim()
         .trimEnd('/')
-        .ifBlank { FALLBACK_PRODUCTION_ENDPOINT }
+        .ifBlank { DEFAULT_PRODUCTION_ENDPOINT }
     internal const val VIRAL_ANALYSIS_READ_TIMEOUT_MS = 300_000
+
+    internal fun candidateEndpoints(endpoint: String): List<String> {
+        val configured = viralEndpoint(endpoint).trimEnd('/')
+        val list = mutableListOf<String>()
+        if (configured.isNotBlank()) list.add(configured)
+        if (!list.contains(DEFAULT_PRODUCTION_ENDPOINT)) list.add(DEFAULT_PRODUCTION_ENDPOINT)
+        if (!list.contains(FALLBACK_PRODUCTION_ENDPOINT)) list.add(FALLBACK_PRODUCTION_ENDPOINT)
+        return list
+    }
 
     internal fun validateEndpoint(endpoint: String) {
         val url = runCatching { URL(endpoint.trim()) }.getOrElse { throw IllegalArgumentException("Invalid TakeOff endpoint") }

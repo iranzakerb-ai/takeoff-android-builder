@@ -232,15 +232,15 @@ class AiVideoStudioActivity : Activity() {
 
     private fun pairDevice(credential: String): Pair<Int, String> {
         val prefs = getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
-        val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty()).trimEnd('/')
+        val endpoints = PayloadClient.candidateEndpoints(prefs.getString("endpoint", "").orEmpty())
         val deviceId = prefs.getString("device_id", null) ?: UUID.randomUUID().toString().also { prefs.edit().putString("device_id", it).apply() }
         val payload = JSONObject().apply {
             put("device_id", deviceId)
             put("device_name", "TakeOff Android ${Build.MODEL}")
             put("code", credential)
         }
-        fun attempt(asMaster: Boolean): Pair<Int, String> {
-            val conn = URL(endpoint + "/v2/viral-evidence/pair").openConnection() as HttpURLConnection
+        fun attempt(endpoint: String, asMaster: Boolean): Pair<Int, String> {
+            val conn = URL(endpoint.trimEnd('/') + "/v2/viral-evidence/pair").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.connectTimeout = 20_000
@@ -253,31 +253,49 @@ class AiVideoStudioActivity : Activity() {
                 val code = conn.responseCode
                 val stream = if (code in 200..299) conn.inputStream else conn.errorStream
                 code to stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            } catch (_: Exception) {
+                0 to ""
             } finally { conn.disconnect() }
         }
-        val masterTry = attempt(true)
-        return if (masterTry.first in 200..299) masterTry else attempt(false)
+        var last: Pair<Int, String> = 0 to ""
+        for (ep in endpoints) {
+            val masterTry = attempt(ep, true)
+            val res = if (masterTry.first in 200..299) masterTry else attempt(ep, false)
+            if (res.first in 200..299) return res
+            last = res
+            if (res.first != 404 && res.first !in 502..504) return res
+        }
+        return last
     }
 
     private fun post(body: JSONObject): Pair<Int, String> {
         val prefs = getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
-        val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty()).trimEnd('/')
+        val endpoints = PayloadClient.candidateEndpoints(prefs.getString("endpoint", "").orEmpty())
         val key = SecretStore(this).get("api_key").orEmpty()
-        val conn = URL(endpoint + "/v4/ai-video-studio/generate").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 20_000
-        conn.readTimeout = 320_000
-        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-        conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("User-Agent", "TakeOff-Insights/" + BuildConfig.VERSION_NAME)
-        if (key.isNotBlank()) conn.setRequestProperty("X-Takeoff-Companion-Key", key)
-        return try {
-            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            code to stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-        } finally { conn.disconnect() }
+        var last: Pair<Int, String> = 0 to ""
+        for (ep in endpoints) {
+            val conn = URL(ep.trimEnd('/') + "/v4/ai-video-studio/generate").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.connectTimeout = 20_000
+            conn.readTimeout = 320_000
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("User-Agent", "TakeOff-Insights/" + BuildConfig.VERSION_NAME)
+            if (key.isNotBlank()) conn.setRequestProperty("X-Takeoff-Companion-Key", key)
+            val res = try {
+                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val code = conn.responseCode
+                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                code to stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            } catch (_: Exception) {
+                0 to ""
+            } finally { conn.disconnect() }
+            if (res.first in 200..299) return res
+            last = res
+            if (res.first != 404 && res.first !in 502..504) return res
+        }
+        return last
     }
 
     private fun renderPackage(root: JSONObject) {

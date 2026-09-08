@@ -55,7 +55,7 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                 queue.mutate(localId) { it.put("status", "submitting").put("stage", "submitting").put("progress", 1) }
                 val start = SharedMediaClient.start(endpoint, item.url, item.niche, item.accountId, true, companionKey)
                 if (start.code !in 200..299 || start.body == null) {
-                    val terminal = start.code in 400..499 && start.code !in listOf(408, 425, 429)
+                    val terminal = start.code in 400..499 && start.code !in listOf(404, 408, 425, 429)
                     queue.fail(localId, "HTTP ${start.code}: ${safeDetail(start.raw, start.body)}", terminal)
                     if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
                     return@withContext Result.success()
@@ -103,13 +103,13 @@ class SharedMediaWorker(appContext: Context, params: WorkerParameters) : Corouti
                         else queue.fail(localId, "token_restart_exhausted", true)
                         return@withContext Result.success()
                     }
-                    if (processed.code in 500..599 || processed.code in listOf(408, 425, 429)) {
+                    if (processed.code in 500..599 || processed.code in listOf(404, 408, 425, 429)) {
                         val wait = processed.body?.optInt("retry_after_seconds", 15)?.coerceIn(5, 90) ?: 15
                         queue.markTransient(localId, "HTTP ${processed.code}: $detail")
                         queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, wait) }
                         return@withContext Result.success()
                     }
-                    val terminal = processed.code in 400..499
+                    val terminal = processed.code in 400..499 && processed.code !in listOf(404, 408, 425, 429)
                     queue.fail(localId, "HTTP ${processed.code}: $detail", terminal)
                     if (!terminal) queue.get(localId)?.let { SharedMediaWork.enqueueContinuation(applicationContext, it, 15) }
                     return@withContext Result.success()

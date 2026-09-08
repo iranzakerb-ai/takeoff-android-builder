@@ -76,39 +76,86 @@ object SharedMediaClient {
         forceRefresh: Boolean = true,
         companionKey: String = "",
     ): Response {
-        val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         val body = JSONObject()
             .put("url", url)
             .put("niche", niche)
             .put("account_id", accountId ?: JSONObject.NULL)
             .put("source", "android_share_v4")
             .put("force_refresh", forceRefresh)
-        return executeWithNetworkRetry(
-            { connection("$base/v4/media-jobs", "POST", 70_000, companionKey) },
+        val endpoints = PayloadClient.candidateEndpoints(endpoint)
+        var last: Response? = null
+        for (ep in endpoints) {
+            try {
+                val res = executeWithNetworkRetry(
+                    { connection("$ep/v4/media-jobs", "POST", 70_000, companionKey) },
+                    body,
+                    attempts = 2,
+                )
+                if (res.code in 200..299) return res
+                last = res
+                if (res.code != 404 && res.code !in 500..599) return res
+            } catch (io: IOException) {
+                if (ep == endpoints.last() && last == null) throw io
+            }
+        }
+        return last ?: executeWithNetworkRetry(
+            { connection("${endpoints.first()}/v4/media-jobs", "POST", 70_000, companionKey) },
             body,
             attempts = 2,
         )
     }
 
     fun process(endpoint: String, jobId: String, token: String, companionKey: String = ""): Response {
-        val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         // IMPORTANT: a process request advances a signed stateless capability.
         // If the network drops after the server advanced but before Android read
         // the response, blindly replaying the same token can fork/race the state.
         // WorkManager owns the retry so each network invocation is single-shot.
-        return executeWithNetworkRetry(
-            { connection("$base/v4/media-jobs/${enc(jobId)}/process", "POST", PROCESS_READ_TIMEOUT_MS, companionKey) },
-            JSONObject().put("token", token),
+        val endpoints = PayloadClient.candidateEndpoints(endpoint)
+        val body = JSONObject().put("token", token)
+        var last: Response? = null
+        for (ep in endpoints) {
+            try {
+                val res = executeWithNetworkRetry(
+                    { connection("$ep/v4/media-jobs/${enc(jobId)}/process", "POST", PROCESS_READ_TIMEOUT_MS, companionKey) },
+                    body,
+                    attempts = 1,
+                )
+                if (res.code in 200..299) return res
+                last = res
+                if (res.code != 404 && res.code !in 502..504) return res
+            } catch (io: IOException) {
+                if (ep == endpoints.last() && last == null) throw io
+            }
+        }
+        return last ?: executeWithNetworkRetry(
+            { connection("${endpoints.first()}/v4/media-jobs/${enc(jobId)}/process", "POST", PROCESS_READ_TIMEOUT_MS, companionKey) },
+            body,
             attempts = 1,
         )
     }
 
     fun status(endpoint: String, jobId: String, token: String, companionKey: String = ""): Response {
-        val base = PayloadClient.viralEndpoint(endpoint).trimEnd('/')
         // Status is read-only, so a small network retry is safe.
-        return executeWithNetworkRetry(
-            { connection("$base/v4/media-jobs/${enc(jobId)}/status", "POST", 30_000, companionKey) },
-            JSONObject().put("token", token),
+        val endpoints = PayloadClient.candidateEndpoints(endpoint)
+        val body = JSONObject().put("token", token)
+        var last: Response? = null
+        for (ep in endpoints) {
+            try {
+                val res = executeWithNetworkRetry(
+                    { connection("$ep/v4/media-jobs/${enc(jobId)}/status", "POST", 30_000, companionKey) },
+                    body,
+                    attempts = 2,
+                )
+                if (res.code in 200..299) return res
+                last = res
+                if (res.code != 404 && res.code !in 502..504) return res
+            } catch (io: IOException) {
+                if (ep == endpoints.last() && last == null) throw io
+            }
+        }
+        return last ?: executeWithNetworkRetry(
+            { connection("${endpoints.first()}/v4/media-jobs/${enc(jobId)}/status", "POST", 30_000, companionKey) },
+            body,
             attempts = 2,
         )
     }
