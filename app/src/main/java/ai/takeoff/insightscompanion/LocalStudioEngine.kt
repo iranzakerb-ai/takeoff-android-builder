@@ -236,7 +236,7 @@ object LocalStudioEngine {
                     put("audio_sfx", "وووش دینامیک در شروع و ضرباهنگ پرانرژی")
                 })
             } else {
-                val sceneCount = 3 + (i % 3)
+                val sceneCount = 4 + (i % 5)
                 val step = duration.toDouble() / sceneCount
                 for (s in 0 until sceneCount) {
                     val sNum = s + 1
