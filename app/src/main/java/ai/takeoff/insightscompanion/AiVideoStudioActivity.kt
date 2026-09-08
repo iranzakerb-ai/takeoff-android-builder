@@ -35,6 +35,8 @@ class AiVideoStudioActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var results: LinearLayout
     private lateinit var generate: Button
+    private lateinit var formContainer: LinearLayout
+    private lateinit var toggleFormBtn: Button
     private var pendingBody: JSONObject? = null
     private var activeTaskId: String? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -46,6 +48,9 @@ class AiVideoStudioActivity : Activity() {
             if (entry != null) {
                 if (entry.status == "completed" && !entry.resultJson.isNullOrBlank()) {
                     generate.isEnabled = true
+                    formContainer.visibility = View.GONE
+                    toggleFormBtn.visibility = View.VISIBLE
+                    toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
                     runCatching { JSONObject(entry.resultJson!!) }.getOrNull()?.let {
                         renderPackage(it)
                     }
@@ -67,8 +72,24 @@ class AiVideoStudioActivity : Activity() {
 
         val fromTaskId = intent.getStringExtra("selected_task_id")
         if (!fromTaskId.isNullOrBlank()) {
-            StudioResultStore(this).get(fromTaskId)?.resultJson?.let {
-                runCatching { JSONObject(it) }.getOrNull()?.let { j -> renderPackage(j) }
+            activeTaskId = fromTaskId
+            val entry = StudioResultStore(this).get(fromTaskId)
+            if (entry != null) {
+                if (entry.status == "completed" && !entry.resultJson.isNullOrBlank()) {
+                    formContainer.visibility = View.GONE
+                    toggleFormBtn.visibility = View.VISIBLE
+                    toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
+                    runCatching { JSONObject(entry.resultJson!!) }.getOrNull()?.let { j -> renderPackage(j) }
+                } else if (entry.status == "processing") {
+                    formContainer.visibility = View.GONE
+                    toggleFormBtn.visibility = View.VISIBLE
+                    toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
+                    status.text = "در حال ساخت و داوری ویدیوی هوش مصنوعی در سرور... لطفاً شکیبا باشید."
+                    status.setTextColor(LovableUi.primary)
+                    mainHandler.postDelayed(pollRunnable, 1000)
+                } else if (entry.status == "failed") {
+                    showError("خطا در ساخت ویدیو: ${entry.errorMessage ?: "فرآیند متوقف شد."}")
+                }
             }
         }
     }
@@ -103,19 +124,37 @@ class AiVideoStudioActivity : Activity() {
             topRow.addView(LovableUi.run { ghostButton("📂 آرشیو ویدیوها") { showArchiveDialog() } }, LinearLayout.LayoutParams(-2, LovableUi.run { dp(36) }))
             addView(topRow)
 
-            addView(LovableUi.run { text("تولید ویدیوی هوش مصنوعی فوق‌رئال", 17f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(10) }, 0, 0) })
-            addView(LovableUi.run { text("۴ حالت هوش مصنوعی: سینمایی چندسکانسه (با کلام و بی‌کلام) و ویدیوی وایرال شگفت‌انگیز ۱۰ ثانیه‌ای با پرامپت‌های دوربین واقعی iPhone 15 Pro و تایمینگ‌های دقیق Flow.labs.", 12f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(7) }, 0, 0) })
-        }, LovableUi.run { margin(bottom = 20) })
+            addView(LovableUi.run { text("یک ویدیوی AI کامل و آماده تولید", 17f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(10) }, 0, 0) })
+            addView(LovableUi.run { text("۴ حالت هوش مصنوعی: سینمایی چندسکانسه (با دیالوگ و بدون دیالوگ) و ویدیوی وایرال ۱۰ ثانیه‌ای شگفت‌انگیز با پرامپت‌های دوربین واقعی iPhone 15 Pro و تایمینگ‌های دقیق Flow.labs.", 12f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(7) }, 0, 0) })
+        }, LovableUi.run { margin(bottom = 14) })
 
-        root.addView(LovableUi.run { sectionTitle("اطلاعات کسب‌وکار و ایده") }, LovableUi.run { margin(bottom = 10) })
+        toggleFormBtn = LovableUi.run { ghostButton("➕ نمایش فرم ساخت ویدیوی جدید") {
+            if (formContainer.visibility == View.VISIBLE) {
+                formContainer.visibility = View.GONE
+                toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
+            } else {
+                formContainer.visibility = View.VISIBLE
+                toggleFormBtn.text = "✖ بستن فرم ساخت جدید"
+            }
+        } }.apply {
+            visibility = View.GONE
+        }
+        root.addView(toggleFormBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(44) }).apply { bottomMargin = LovableUi.run { dp(12) } })
+
+        formContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+
+        formContainer.addView(LovableUi.run { sectionTitle("اطلاعات کسب‌وکار و ایده") }, LovableUi.run { margin(bottom = 10) })
         niche = field("حوزه کاری *", "مثلاً دندانپزشکی، بوتیک لباس یا نرم‌افزار")
         description = field("توضیح کسب‌وکار و ایده مدنظر *", "توضیح کوتاه یا کامل درباره آنچه می‌خواهید بسازید", 5)
         audience = field("مخاطب هدف", "مثلاً جوانان ۱۸ تا ۳۰ سال علاقه‌مند به تکنولوژی")
         offer = field("محصول یا پیام اصلی", "چه ارزشی یا محصولی باید در ویدیو تثبیت شود؟")
         constraints = field("محدودیت‌های سناریو", "نبایدها، لحن برند، ترجیحات بصری", 3)
-        listOf(niche, description, audience, offer, constraints).forEach { root.addView(it) }
+        listOf(niche, description, audience, offer, constraints).forEach { formContainer.addView(it) }
 
-        root.addView(LovableUi.run { sectionTitle("حالت ویدیوی هوش مصنوعی") }, LovableUi.run { margin(bottom = 8, top = 4) })
+        formContainer.addView(LovableUi.run { sectionTitle("حالت ویدیوی هوش مصنوعی") }, LovableUi.run { margin(bottom = 8, top = 4) })
         mode = Spinner(this).apply {
             adapter = ArrayAdapter(
                 this@AiVideoStudioActivity,
@@ -131,27 +170,29 @@ class AiVideoStudioActivity : Activity() {
             background = LovableUi.run { rounded(Color.WHITE, 18, LovableUi.border) }
             setPadding(LovableUi.run { dp(12) }, LovableUi.run { dp(8) }, LovableUi.run { dp(12) }, LovableUi.run { dp(8) })
         }
-        root.addView(mode, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }).apply { bottomMargin = LovableUi.run { dp(14) } })
+        formContainer.addView(mode, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }).apply { bottomMargin = LovableUi.run { dp(14) } })
 
-        root.addView(LovableUi.run { sectionTitle("تعداد کاراکترهای کلیدی") }, LovableUi.run { margin(bottom = 8, top = 4) })
+        formContainer.addView(LovableUi.run { sectionTitle("تعداد کاراکترهای کلیدی") }, LovableUi.run { margin(bottom = 8, top = 4) })
         actors = Spinner(this).apply {
             adapter = ArrayAdapter(this@AiVideoStudioActivity, android.R.layout.simple_spinner_dropdown_item, listOf("۱ کاراکتر", "۲ کاراکتر", "۳ کاراکتر"))
             setSelection(0)
             background = LovableUi.run { rounded(Color.WHITE, 18, LovableUi.border) }
             setPadding(LovableUi.run { dp(12) }, LovableUi.run { dp(8) }, LovableUi.run { dp(12) }, LovableUi.run { dp(8) })
         }
-        root.addView(actors, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }).apply { bottomMargin = LovableUi.run { dp(14) } })
+        formContainer.addView(actors, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }).apply { bottomMargin = LovableUi.run { dp(14) } })
 
-        root.addView(LovableUi.run { card() }.apply {
+        formContainer.addView(LovableUi.run { card() }.apply {
             val row = LinearLayout(this@AiVideoStudioActivity).apply { orientation = LinearLayout.HORIZONTAL; layoutDirection = View.LAYOUT_DIRECTION_RTL; gravity = Gravity.CENTER_VERTICAL }
             row.addView(LovableUi.run { text("مشخصات خروجی استودیو AI", 12.5f, LovableUi.foreground, true) }, LinearLayout.LayoutParams(0, -2, 1f))
             row.addView(LovableUi.run { chip("Flow.labs Presets", "secondary") })
             addView(row)
-            addView(LovableUi.run { text("مدت سکانس‌ها به صورت خودکار از میان مقادیر ۴، ۶، ۸ و ۱۰ ثانیه انتخاب می‌شود. برای ویدیوهای وایرال ۱۰ ثانیه‌ای، پرامپت‌ها کاملاً رئال گوشی طراحی شده و بدون کاراکتر شیت مستقیماً در تولید ویدیو قرار می‌گیرند.", 11.5f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(8) }, 0, 0) })
+            addView(LovableUi.run { text("مدت سکانس‌ها به صورت خودکار از میان مقادیر ۴ / ۶ / ۸ / ۱۰ ثانیه انتخاب می‌شود. این چهار عدد فقط preset زمان ساخت هر سکانس در Flow/Omni هستند، تعداد سکانس‌ها مستقل است، زمان‌ها می‌توانند تکرار شوند و ترتیب اجباری ندارند. برای ویدیوهای وایرال ۱۰ ثانیه‌ای، پرامپت‌ها کاملاً رئال گوشی طراحی شده و بدون کاراکتر شیت مستقیماً در تولید ویدیو قرار می‌گیرند.", 11.5f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(8) }, 0, 0) })
         }, LovableUi.run { margin(bottom = 16) })
 
         generate = LovableUi.run { primaryButton("ساخت ویدیوی AI با Omni") { requestPackage() } }
-        root.addView(generate, LinearLayout.LayoutParams(-1, LovableUi.run { dp(54) }))
+        formContainer.addView(generate, LinearLayout.LayoutParams(-1, LovableUi.run { dp(54) }))
+        root.addView(formContainer)
+
         status = LovableUi.run { text("", 12.5f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(12) }, 0, LovableUi.run { dp(4) }) }
         root.addView(status)
         results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutDirection = View.LAYOUT_DIRECTION_RTL }
@@ -180,16 +221,17 @@ class AiVideoStudioActivity : Activity() {
             Toast.makeText(this, "هنوز ویدیوی هوش مصنوعی ذخیره‌شده‌ای وجود ندارد.", Toast.LENGTH_SHORT).show()
             return
         }
-        val titles = list.map { "${it.niche} (${it.mode}) • ${SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(Date(it.createdAt))}" }.toTypedArray()
+        val titles = list.map { "${it.title.ifBlank { it.niche }} (${SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(Date(it.createdAt))})" }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("آرشیو ویدیوهای هوش مصنوعی")
             .setItems(titles) { _, which ->
                 val selected = list[which]
                 selected.resultJson?.let {
-                    runCatching {
-                        val obj = JSONObject(it)
-                        renderPackage(obj)
-                        Toast.makeText(this, "پکیج «${selected.niche}» بارگذاری شد.", Toast.LENGTH_SHORT).show()
+                    runCatching { JSONObject(it) }.getOrNull()?.let { j ->
+                        formContainer.visibility = View.GONE
+                        toggleFormBtn.visibility = View.VISIBLE
+                        toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
+                        renderPackage(j)
                     }
                 }
             }
@@ -220,6 +262,7 @@ class AiVideoStudioActivity : Activity() {
             put("audience", audience.text.toString().trim())
             put("offer", offer.text.toString().trim())
             put("constraints", constraints.text.toString().trim())
+            put("production_constraints", constraints.text.toString().trim())
             put("actors_available", selectedActors)
             put("actor_count", selectedActors)
         }
@@ -263,6 +306,9 @@ class AiVideoStudioActivity : Activity() {
                             current.copy(status = "completed", resultJson = it.toString(), errorMessage = null)
                         }
                         generate.isEnabled = true
+                        formContainer.visibility = View.GONE
+                        toggleFormBtn.visibility = View.VISIBLE
+                        toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
                         mainHandler.removeCallbacks(pollRunnable)
                         renderPackage(it)
                     }
@@ -430,13 +476,13 @@ class AiVideoStudioActivity : Activity() {
 
             val hook = video.optJSONObject("hook_stack")
             if (hook != null) {
-                val hookText = "قلاب تصویری: ${hook.optString("visual")}\nقلاب صوتی/SFX: ${hook.optString("audio")}"
+                val hookText = "قلاب تصویری: ${hook.optString("visual")}\nقلاب صوتی: ${hook.optString("audio")}"
                 addView(LovableUi.run { text(hookText, 11f, LovableUi.muted) }.apply { setPadding(0, 0, 0, LovableUi.run { dp(10) }) })
             }
 
             addView(LovableUi.run { card() }.apply {
                 setBackgroundColor(Color.rgb(15, 23, 42))
-                addView(LovableUi.run { text("📌 توجه: این ویدیو کاملاً رئال و موبایلی طراحی شده و نیازی به طراحی کاراکتر شیت ندارد. پرامپت زیر مستقیماً به ویدیو جنریتور Omni داده می‌شود.", 11f, Color.rgb(147, 197, 253)) })
+                addView(LovableUi.run { text("📌 توجه: این ویدیو کاملاً رئال و موبایلی طراحی شده و نیازی به طراحی کاراکتر شیت ندارد. پرامپت زیر مستقیماً به ابزارهای ویدیوساز Omni داده می‌شود.", 11f, Color.rgb(147, 197, 253)) })
             }, LovableUi.run { margin(bottom = 12) })
 
             addView(LovableUi.run { sectionTitle("پرامپت ویدیوی ۱۰ ثانیه‌ای Omni") }, LovableUi.run { margin(bottom = 6) })
@@ -454,14 +500,6 @@ class AiVideoStudioActivity : Activity() {
                 copyText(omniPrompt, "پرامپت ویدیوی ۱۰ ثانیه‌ای Omni کپی شد!")
             } }
             addView(copyBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(52) }))
-
-            val pdfRow = LinearLayout(this@AiVideoStudioActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-            }
-            pdfRow.addView(LovableUi.run { ghostButton("دانلود PDF فارسی") { exportAiVideoPdf(root) } }, LinearLayout.LayoutParams(0, LovableUi.run { dp(46) }, 1f).apply { marginEnd = LovableUi.run { dp(4) } })
-            pdfRow.addView(LovableUi.run { ghostButton("اشتراک‌گذاری PDF") { exportAiVideoPdf(root) } }, LinearLayout.LayoutParams(0, LovableUi.run { dp(46) }, 1f).apply { marginStart = LovableUi.run { dp(4) } })
-            addView(pdfRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = LovableUi.run { dp(10) } })
         }, LovableUi.run { margin(bottom = 16, top = 6) })
     }
 
@@ -485,9 +523,6 @@ class AiVideoStudioActivity : Activity() {
                 copyText(fullText, "تمام پرامپت‌های کاراکترها و سکانس‌ها کپی شد!")
             } }
             addView(copyAllBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }).apply { topMargin = LovableUi.run { dp(6) } })
-
-            val pdfBtn = LovableUi.run { ghostButton("دانلود و اشتراک‌گذاری PDF پرامپت‌ها") { exportAiVideoPdf(root) } }
-            addView(pdfBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(46) }).apply { topMargin = LovableUi.run { dp(8) } })
         }, LovableUi.run { margin(bottom = 16, top = 6) })
 
         if (characters.length() > 0) {
@@ -513,7 +548,7 @@ class AiVideoStudioActivity : Activity() {
                     }
                     addView(promptBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = LovableUi.run { dp(8) }; bottomMargin = LovableUi.run { dp(10) } })
 
-                    val copyCharBtn = LovableUi.run { primaryButton("📋 کپی پرامپت کاراکتر $charId") {
+                    val copyCharBtn = LovableUi.run { primaryButton("📋 کپی Character Sheet Prompt") {
                         copyText(charPrompt, "پرامپت کاراکتر $charId کپی شد!")
                     } }
                     addView(copyCharBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(44) }))
@@ -549,7 +584,7 @@ class AiVideoStudioActivity : Activity() {
                 }
                 addView(promptBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = LovableUi.run { dp(6) }; bottomMargin = LovableUi.run { dp(10) } })
 
-                val copySceneBtn = LovableUi.run { primaryButton("📋 کپی Omni Prompt سکانس $sceneNum") {
+                val copySceneBtn = LovableUi.run { primaryButton("📋 کپی Omni Prompt این سکانس") {
                     copyText(scenePrompt, "پرامپت سکانس $sceneNum کپی شد!")
                 } }
                 addView(copySceneBtn, LinearLayout.LayoutParams(-1, LovableUi.run { dp(44) }))
@@ -575,22 +610,6 @@ class AiVideoStudioActivity : Activity() {
             sb.append(s.optString("omni_prompt")).append("\n\n")
         }
         return sb.toString().trim()
-    }
-
-    private fun exportAiVideoPdf(root: JSONObject) {
-        Toast.makeText(this, "در حال ایجاد PDF پرامپت‌های هوش مصنوعی…", Toast.LENGTH_SHORT).show()
-        Thread {
-            val result = runCatching { TakeoffPdfExporter.exportAiVideoStudio(this, root) }.getOrNull()
-            runOnUiThread {
-                val cacheFile = result?.second
-                if (cacheFile != null && cacheFile.exists()) {
-                    Toast.makeText(this, "PDF در پوشه Downloads/TakeOff ذخیره شد.", Toast.LENGTH_LONG).show()
-                    TakeoffPdfExporter.shareOrViewPdf(this, cacheFile, "پرامپت‌های ویدیوی AI تیک‌آف")
-                } else {
-                    Toast.makeText(this, "ذخیره PDF انجام نشد.", Toast.LENGTH_LONG).show()
-                }
-            }
-        }.start()
     }
 
     private fun copyText(text: String, message: String) {

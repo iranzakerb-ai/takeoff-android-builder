@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "ai.takeoff.insightscompanion"
         minSdk = 26; targetSdk = 35
-        versionCode = 62
-        versionName = "0.20.2"
+        versionCode = 63
+        versionName = "0.20.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "TAKEOFF_PRODUCTION_ENDPOINT", "\"$escapedTakeoffProductionEndpoint\"")
     }
