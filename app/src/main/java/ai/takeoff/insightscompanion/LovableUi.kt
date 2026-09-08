@@ -50,6 +50,7 @@ object LovableUi {
     }
 
     fun Context.dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    fun Context.dp(value: Float): Float = value * resources.displayMetrics.density
 
     fun Context.rounded(
         fill: Int,
@@ -102,7 +103,7 @@ object LovableUi {
         setPadding(dp(16), dp(16), dp(16), dp(16))
         background = card3dDrawable(if (strong) Color.rgb(22, 30, 48) else LovableUi.card, 22, if (strong) 5 else 3)
         elevation = dp(if (strong) 8 else 4).toFloat()
-        translationZ = dp(if (strong) 3 else 1.5f).toFloat()
+        translationZ = if (strong) dp(3f) else dp(1.5f)
     }
 
     fun Context.card3d(fill: Int = Color.rgb(19, 26, 42), radius: Int = 22, depth: Int = 4): LinearLayout = LinearLayout(this).apply {
@@ -263,7 +264,7 @@ object LovableUi {
             setLayerInset(1, 0, 0, 0, depthPx)
         }
         elevation = dp(4).toFloat()
-        translationZ = dp(1.5f).toFloat()
+        translationZ = dp(1.5f)
 
         setOnTouchListener { view, event ->
             when (event.action) {
