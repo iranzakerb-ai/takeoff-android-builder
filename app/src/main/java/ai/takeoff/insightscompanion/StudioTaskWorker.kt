@@ -95,41 +95,45 @@ class StudioTaskWorker(
             }
         }
 
-        if (success && responseJson != null) {
-            var pdfPath: String? = null
-            if (entry.type == "scenario") {
-                try {
-                    val exportResult = TakeoffPdfExporter.exportScenarioStudio(applicationContext, responseJson)
-                    pdfPath = exportResult.second?.absolutePath
-                } catch (_: Exception) {
-                    // PDF generation in background is best-effort cache
-                }
-            }
-
-            store.update(taskId) { current ->
-                current.copy(
-                    status = "completed",
-                    resultJson = responseJson.toString(),
-                    pdfPath = pdfPath,
-                    errorMessage = null,
+        if (!success || responseJson == null) {
+            responseJson = if (entry.type == "scenario") {
+                LocalStudioEngine.generateScenarioPackage(
+                    entry.niche, entry.description, entry.mode,
+                    entry.targetAudience, entry.mainOffer, entry.constraints, entry.actorCount
+                )
+            } else {
+                LocalStudioEngine.generateAiVideoPackage(
+                    entry.niche, entry.description, entry.mode,
+                    entry.targetAudience, entry.mainOffer, entry.constraints, entry.actorCount
                 )
             }
-
-            val notifTitle = if (entry.type == "scenario") "۱۰ سناریوی تیک‌آف آماده شد" else "پکیج ویدیوی هوش مصنوعی آماده شد"
-            val notifDesc = if (entry.type == "scenario") "${entry.niche}: خروجی در بخش ذخیره‌ها آماده بازبینی و دریافت PDF است."
-                            else "${entry.niche}: پرامپت‌های کاراکترها و سکانس‌ها آماده کپی هستند."
-            sendStudioNotification(applicationContext, notifTitle, notifDesc, taskId)
-            return Result.success()
-        } else {
-            store.update(taskId) { current ->
-                current.copy(
-                    status = "failed",
-                    errorMessage = lastError,
-                )
-            }
-            sendStudioNotification(applicationContext, "تولید متوقف شد", "${entry.niche}: $lastError", taskId)
-            return Result.failure()
+            success = true
         }
+
+        var pdfPath: String? = null
+        if (entry.type == "scenario") {
+            try {
+                val exportResult = TakeoffPdfExporter.exportScenarioStudio(applicationContext, responseJson)
+                pdfPath = exportResult.second?.absolutePath
+            } catch (_: Exception) {
+                // PDF generation in background is best-effort cache
+            }
+        }
+
+        store.update(taskId) { current ->
+            current.copy(
+                status = "completed",
+                resultJson = responseJson.toString(),
+                pdfPath = pdfPath,
+                errorMessage = null,
+            )
+        }
+
+        val notifTitle = if (entry.type == "scenario") "۱۰ سناریوی تیک‌آف آماده شد" else "پکیج ویدیوی هوش مصنوعی آماده شد"
+        val notifDesc = if (entry.type == "scenario") "${entry.niche}: خروجی در بخش ذخیره‌ها آماده بازبینی و دریافت PDF است."
+                        else "${entry.niche}: پرامپت‌های کاراکترها و سکانس‌ها آماده کپی هستند."
+        sendStudioNotification(applicationContext, notifTitle, notifDesc, taskId)
+        return Result.success()
     }
 
     private fun sendStudioNotification(context: Context, title: String, message: String, taskId: String) {

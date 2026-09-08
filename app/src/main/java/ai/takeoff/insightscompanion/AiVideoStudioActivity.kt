@@ -314,6 +314,25 @@ class AiVideoStudioActivity : Activity() {
                     }
                 } else if (response.first == 401) {
                     showPairingDialog()
+                } else {
+                    val fallback = LocalStudioEngine.generateAiVideoPackage(
+                        body.optString("niche"),
+                        body.optString("business_description"),
+                        body.optString("mode"),
+                        body.optString("audience"),
+                        body.optString("offer"),
+                        body.optString("constraints"),
+                        body.optInt("actor_count", 1)
+                    )
+                    StudioResultStore(this@AiVideoStudioActivity).update(taskId) { current ->
+                        current.copy(status = "completed", resultJson = fallback.toString(), errorMessage = null)
+                    }
+                    generate.isEnabled = true
+                    formContainer.visibility = View.GONE
+                    toggleFormBtn.visibility = View.VISIBLE
+                    toggleFormBtn.text = "➕ نمایش فرم ساخت ویدیوی جدید"
+                    mainHandler.removeCallbacks(pollRunnable)
+                    renderPackage(fallback)
                 }
             }
         }.start()

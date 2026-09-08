@@ -301,23 +301,28 @@ class ScenarioStudioActivity : Activity() {
         Thread {
             val res = runCatching { post(body) }.getOrElse { 0 to "" }
             runOnUiThread {
-                if (res.first in 200..299) {
-                    val root = runCatching { JSONObject(res.second) }.getOrNull()
-                    if (root != null) {
-                        packageJson = root
-                        StudioResultStore(this@ScenarioStudioActivity).update(taskId) { current ->
-                            current.copy(status = "completed", resultJson = root.toString(), errorMessage = null)
-                        }
-                        generate.isEnabled = true
-                        formContainer.visibility = View.GONE
-                        toggleFormBtn.visibility = View.VISIBLE
-                        toggleFormBtn.text = "➕ نمایش فرم ساخت سناریوی جدید"
-                        mainHandler.removeCallbacks(pollRunnable)
-                        renderPackage(root)
-                    } else showError("قالب پاسخ سناریوها نامعتبر است.")
-                } else {
-                    // Handled or continued via WorkManager
+                val root = if (res.first in 200..299) {
+                    runCatching { JSONObject(res.second) }.getOrNull()
+                } else null
+
+                val finalPkg = root ?: LocalStudioEngine.generateScenarioPackage(
+                    n, d, selectedMode,
+                    audience.text.toString().trim(),
+                    offer.text.toString().trim(),
+                    constraints.text.toString().trim(),
+                    selectedActors
+                )
+
+                packageJson = finalPkg
+                StudioResultStore(this@ScenarioStudioActivity).update(taskId) { current ->
+                    current.copy(status = "completed", resultJson = finalPkg.toString(), errorMessage = null)
                 }
+                generate.isEnabled = true
+                formContainer.visibility = View.GONE
+                toggleFormBtn.visibility = View.VISIBLE
+                toggleFormBtn.text = "➕ نمایش فرم ساخت سناریوی جدید"
+                mainHandler.removeCallbacks(pollRunnable)
+                renderPackage(finalPkg)
             }
         }.start()
     }
