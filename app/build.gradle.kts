@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "ai.takeoff.insightscompanion"
         minSdk = 26; targetSdk = 35
-        versionCode = 49
-        versionName = "0.19.1"
+        versionCode = 50
+        versionName = "0.19.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "TAKEOFF_PRODUCTION_ENDPOINT", "\"$escapedTakeoffProductionEndpoint\"")
     }
@@ -39,4 +39,4 @@ dependencies {
     testImplementation("org.json:json:20250517")
 }
 
-// 0.19.1: golden UI source, short-description studio contract, two-mode studios, and bounded media failure recovery.
+// 0.19.2: tactile 3D glass depth, multi-endpoint failover, and elevated visual intelligence.

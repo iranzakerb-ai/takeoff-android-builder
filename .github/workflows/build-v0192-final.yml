@@ -1,4 +1,4 @@
-name: Build TakeOff Insights 0.19.1 Final
+name: Build TakeOff Insights 0.19.2 Final
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: takeoff-v0191-final-${{ github.ref }}
+  group: takeoff-v0192-final-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -26,8 +26,8 @@ jobs:
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 49' app/build.gradle.kts
-          grep -q 'versionName = "0.19.1"' app/build.gradle.kts
+          grep -q 'versionCode = 50' app/build.gradle.kts
+          grep -q 'versionName = "0.19.2"' app/build.gradle.kts
           grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
           grep -q 'ScenarioStudioActivity' app/src/main/AndroidManifest.xml
           grep -q 'AiVideoStudioActivity' app/src/main/AndroidManifest.xml
@@ -79,7 +79,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='49' versionName='0.19.1'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='50' versionName='0.19.2'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'GlassHomeActivity' apk-manifest.txt
@@ -90,21 +90,21 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-0.19.1.apk
+          cp "$APK" TakeOff-Insights-0.19.2.apk
           echo 'DADSTAN_APK_FORENSICS=PASS'
 
       - name: Upload final APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.19.1
-          path: TakeOff-Insights-0.19.1.apk
+          name: TakeOff-Insights-0.19.2
+          path: TakeOff-Insights-0.19.2.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload forensic reports artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.19.1-forensics
+          name: TakeOff-Insights-0.19.2-forensics
           path: |
             apk-badging.txt
             apk-signing.txt
@@ -118,17 +118,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v0.19.1
-          name: "TakeOff Insights v0.19.1 (Build 49)"
+          tag_name: v0.19.2
+          name: "TakeOff Insights v0.19.2 (Build 50)"
           body: |
-            ## TakeOff Insights v0.19.1 — Official Release
+            ## TakeOff Insights v0.19.2 — Official Release
             - **Application ID**: `ai.takeoff.insightscompanion`
-            - **Version Name**: `0.19.1`
-            - **Version Code**: `49`
+            - **Version Name**: `0.19.2`
+            - **Version Code**: `50`
             - **Launcher**: `GlassHomeActivity`
             - **Audit**: DADSTAN Forensic Gate PASSED
           files: |
-            TakeOff-Insights-0.19.1.apk
+            TakeOff-Insights-0.19.2.apk
             apk-badging.txt
             apk-signing.txt
             apk-manifest.txt
