@@ -25,19 +25,46 @@ class GlassHomeActivity : Activity() {
     private lateinit var statScore: TextView
     private lateinit var statScenarios: TextView
 
+    private val syncHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val syncRunnable = object : Runnable {
+        override fun run() {
+            SharedMediaWork.syncRemoteEvidence(this@GlassHomeActivity) {
+                refreshLocal()
+            }
+            syncHandler.postDelayed(this, 12_000)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LovableUi.applyWindow(this)
         setContentView(buildUi())
         refreshLocal()
         refreshServer()
+
+        try {
+            val req = androidx.work.PeriodicWorkRequestBuilder<PendingWorker>(15, java.util.concurrent.TimeUnit.MINUTES).build()
+            androidx.work.WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                "takeoff_companion_periodic_sync",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                req
+            )
+        } catch (_: Exception) {}
     }
 
     override fun onResume() {
         super.onResume()
         if (::queueSummary.isInitialized) refreshLocal()
-        SharedMediaWork.syncRemoteEvidence(this)
+        SharedMediaWork.syncRemoteEvidence(this) { refreshLocal() }
+        syncHandler.removeCallbacks(syncRunnable)
+        syncHandler.postDelayed(syncRunnable, 12_000)
     }
+
+    override fun onPause() {
+        super.onPause()
+        syncHandler.removeCallbacks(syncRunnable)
+    }
+
 
     private fun buildUi(): View {
         val page = LinearLayout(this).apply {
@@ -86,14 +113,38 @@ class GlassHomeActivity : Activity() {
         body.addView(LovableUi.run { sectionTitle("دسترسی سریع") }, LovableUi.run { margin(bottom = 10) })
         body.addView(quickActions(), LovableUi.run { margin(bottom = 22) })
 
-        body.addView(sectionHeader("در حال پردازش", "صف تحلیل") { startActivity(Intent(this, ViralShareActivity::class.java)) })
-        queueSummary = LovableUi.run { text("در حال خواندن صف…", 12f, LovableUi.muted) }
-        body.addView(queueSummary, LovableUi.run { margin(bottom = 8) })
+        body.addView(sectionHeader("مخزن و صف یادگیری ریلزها", "ورود به صف (۵ لاین) ▷") { startActivity(Intent(this, ViralShareActivity::class.java)) })
+        body.addView(LovableUi.run { card(true) }.apply {
+            val top = LinearLayout(this@GlassHomeActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            top.addView(LovableUi.run { chip("⚡ ۵ لاین همزمان • پردازش زنده", "primary") })
+            top.addView(LovableUi.run { text("پایش خودکار دایرکت و سوپابیس", 10f, LovableUi.muted) }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(top)
+
+            addView(LovableUi.run { text("دریافت ریلزهای دایرکت و کالبدشکافی عمیق", 14f, LovableUi.foreground, true) }.apply {
+                setPadding(0, LovableUi.run { dp(9) }, 0, LovableUi.run { dp(3) })
+            })
+            addView(LovableUi.run { text("هر ریلزی که به دایرکت تیک‌آف ارسال شود، بلافاصله در ۵ لاین موازی تحلیل و هوک، دیالوگ‌ها، ساختار سناریو و فرضیات ریتنشن در مخزن سوپابیس ثبت می‌گردد.", 11.5f, LovableUi.muted) }.apply {
+                setPadding(0, 0, 0, LovableUi.run { dp(10) })
+            })
+
+            queueSummary = LovableUi.run { text("در حال خواندن صف…", 12f, LovableUi.muted) }
+            addView(queueSummary, LovableUi.run { margin(bottom = 10) })
+
+            addView(LovableUi.run { primaryButton("مشاهده صف زنده و کالبدشکافی ریلزها ▷") {
+                startActivity(Intent(this@GlassHomeActivity, ViralShareActivity::class.java))
+            } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(48) }))
+        }, LovableUi.run { margin(bottom = 14) })
+
         recentHost = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         body.addView(recentHost, LovableUi.run { margin(bottom = 22) })
+
 
         body.addView(sectionHeader("حافظه و یادگیری", "مشاهده همه") { startActivity(Intent(this, MemoryActivity::class.java)) })
         body.addView(LovableUi.run { card() }.apply {

@@ -198,7 +198,7 @@ object SharedMediaWork {
         )
     }
 
-    fun syncRemoteEvidence(context: Context) {
+    fun syncRemoteEvidence(context: Context, onSyncDone: (() -> Unit)? = null) {
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences("takeoff_companion_plain", Context.MODE_PRIVATE)
         val endpoint = PayloadClient.viralEndpoint(prefs.getString("endpoint", "").orEmpty())
@@ -213,9 +213,11 @@ object SharedMediaWork {
                 if (conn.responseCode in 200..299) {
                     val raw = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                     val array = org.json.JSONArray(raw)
-                    val existingUrls = queue.all().map { it.url }.toSet()
-                    val existingShortcodes = queue.all().map { it.shortcode }.toSet()
+                    val existing = queue.all()
+                    val existingUrls = existing.map { it.url }.toSet()
+                    val existingByShortcode = existing.associateBy { it.shortcode }
 
+                    var hasChanges = false
                     for (i in 0 until array.length()) {
                         val itemObj = array.optJSONObject(i) ?: continue
                         val sourceUrl = itemObj.optString("source_url")
@@ -223,7 +225,8 @@ object SharedMediaWork {
                         val promo = itemObj.optString("promotion_status", "PROMOTE")
                         if (sourceUrl.isBlank() || shortcode.isBlank()) continue
 
-                        if (sourceUrl !in existingUrls && shortcode !in existingShortcodes) {
+                        val localItem = existingByShortcode[shortcode]
+                        if (localItem == null && sourceUrl !in existingUrls) {
                             val enqueued = queue.enqueue(sourceUrl, "عمومی", null)
                             queue.mutate(enqueued.localId) {
                                 it.put("status", "completed")
@@ -233,13 +236,27 @@ object SharedMediaWork {
                             }
                             SharedMediaNotifier.notifyReelReceived(appContext, shortcode, sourceUrl)
                             SharedMediaNotifier.notifyReelCompleted(appContext, shortcode, promo)
+                            hasChanges = true
+                        } else if (localItem != null && (localItem.status != "completed" || localItem.resultJson == null)) {
+                            queue.mutate(localItem.localId) {
+                                it.put("status", "completed")
+                                it.put("stage", "completed")
+                                it.put("progress", 100)
+                                it.put("result", itemObj)
+                            }
+                            SharedMediaNotifier.notifyReelCompleted(appContext, shortcode, promo)
+                            hasChanges = true
                         }
+                    }
+                    if (hasChanges && onSyncDone != null) {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post { onSyncDone() }
                     }
                 }
             } catch (_: Exception) {
             }
         }.start()
     }
+
 
     fun enqueueContinuation(context: Context, item: SharedMediaQueue.Item, delaySeconds: Int = 0) {
         if (item.status in MEDIA_TERMINAL_STATUSES) return
