@@ -176,9 +176,10 @@ object LocalStudioEngine {
     ): JSONObject {
         val cleanNiche = niche.ifBlank { "کسب‌وکار و خدمات" }
         val cleanDesc = description.ifBlank { "راهکارهای نوآورانه و متمایز" }
+        val cleanAudience = audience.ifBlank { "مخاطبان هدف و علاقه‌مندان به حوزه $cleanNiche" }
         val cleanOffer = offer.ifBlank { "پیشنهاد اختصاصی و ارزش افزوده ویژه" }
         val isShort = mode.startsWith("short_15s")
-        val count = if (isShort) 1 else 10
+        val count = 10
 
         val scenarioList = JSONArray()
 
