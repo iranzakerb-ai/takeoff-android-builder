@@ -1,5 +1,6 @@
 package ai.takeoff.insightscompanion
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -7,12 +8,15 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import org.json.JSONObject
 
+@SuppressLint("ClickableViewAccessibility")
 class GlassHomeActivity : Activity() {
     private lateinit var queueSummary: TextView
     private lateinit var recentHost: LinearLayout
@@ -116,7 +120,7 @@ class GlassHomeActivity : Activity() {
     private fun hero(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
-        setPadding(LovableUi.run { dp(18) }, LovableUi.run { dp(20) }, LovableUi.run { dp(18) }, LovableUi.run { dp(62) })
+        setPadding(LovableUi.run { dp(18) }, LovableUi.run { dp(22) }, LovableUi.run { dp(18) }, LovableUi.run { dp(64) })
         background = LovableUi.run { brandGradient(0) }
         val titleRow = LinearLayout(this@GlassHomeActivity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -128,12 +132,13 @@ class GlassHomeActivity : Activity() {
             textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
-            background = LovableUi.run { rounded(Color.argb(35, 255, 255, 255), 18, Color.TRANSPARENT, 0) }
-        }, LinearLayout.LayoutParams(LovableUi.run { dp(38) }, LovableUi.run { dp(38) }).apply { marginEnd = LovableUi.run { dp(10) } })
+            background = LovableUi.run { rounded(Color.argb(45, 255, 255, 255), 18, Color.argb(90, 255, 255, 255), 1) }
+            elevation = LovableUi.run { dp(2).toFloat() }
+        }, LinearLayout.LayoutParams(LovableUi.run { dp(40) }, LovableUi.run { dp(40) }).apply { marginEnd = LovableUi.run { dp(10) } })
         titleRow.addView(LinearLayout(this@GlassHomeActivity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(LovableUi.run { text("سلام محمدحسین ✦", 11f, Color.WHITE) })
-            addView(LovableUi.run { text("مرکز فرماندهی تیک‌آف", 15f, Color.WHITE, true) })
+            addView(LovableUi.run { text("سلام محمدحسین ✦", 11.5f, Color.argb(235, 255, 255, 255)) })
+            addView(LovableUi.run { text("مرکز فرماندهی تیک‌آف", 16f, Color.WHITE, true) })
         }, LinearLayout.LayoutParams(0, -2, 1f))
         titleRow.addView(TextView(this@GlassHomeActivity).apply {
             text = "◉"
@@ -141,13 +146,15 @@ class GlassHomeActivity : Activity() {
             gravity = Gravity.CENTER
             setTextColor(LovableUi.secondary)
             background = LovableUi.run { rounded(LovableUi.navy, 18, LovableUi.navy, 0) }
-        }, LinearLayout.LayoutParams(LovableUi.run { dp(38) }, LovableUi.run { dp(38) }))
+            elevation = LovableUi.run { dp(3).toFloat() }
+            translationZ = LovableUi.run { dp(1).toFloat() }
+        }, LinearLayout.LayoutParams(LovableUi.run { dp(40) }, LovableUi.run { dp(40) }))
         addView(titleRow)
 
         val stats = LinearLayout(this@GlassHomeActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutDirection = View.LAYOUT_DIRECTION_RTL
-            setPadding(0, LovableUi.run { dp(20) }, 0, 0)
+            setPadding(0, LovableUi.run { dp(22) }, 0, 0)
         }
         statAnalyses = statBox("تحلیل این ماه", stats)
         statScore = statBox("میانگین امتیاز", stats)
@@ -156,14 +163,16 @@ class GlassHomeActivity : Activity() {
     }
 
     private fun statBox(label: String, parent: LinearLayout): TextView {
-        val value = LovableUi.run { text("۰", 19f, Color.WHITE, true) }.apply { gravity = Gravity.CENTER }
+        val value = LovableUi.run { text("۰", 20f, Color.WHITE, true) }.apply { gravity = Gravity.CENTER }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(LovableUi.run { dp(6) }, LovableUi.run { dp(11) }, LovableUi.run { dp(6) }, LovableUi.run { dp(10) })
-            background = LovableUi.run { rounded(Color.argb(34, 255, 255, 255), 20, Color.TRANSPARENT, 0) }
+            setPadding(LovableUi.run { dp(6) }, LovableUi.run { dp(12) }, LovableUi.run { dp(6) }, LovableUi.run { dp(11) })
+            background = LovableUi.run { rounded(Color.argb(40, 255, 255, 255), 20, Color.argb(80, 255, 255, 255), 1) }
+            elevation = LovableUi.run { dp(3).toFloat() }
+            translationZ = LovableUi.run { dp(1).toFloat() }
             addView(value)
-            addView(LovableUi.run { text(label, 10f, Color.WHITE) }.apply { gravity = Gravity.CENTER; alpha = 0.9f })
+            addView(LovableUi.run { text(label, 10.2f, Color.WHITE) }.apply { gravity = Gravity.CENTER; alpha = 0.94f })
         }
         parent.addView(box, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = LovableUi.run { dp(4) }; marginEnd = LovableUi.run { dp(4) } })
         return value
@@ -172,28 +181,53 @@ class GlassHomeActivity : Activity() {
     private fun quickActions(): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL
-        fun add(label: String, icon: String, click: () -> Unit) {
+        fun add(label: String, icon: String, toneBg: Int, toneFg: Int, click: () -> Unit) {
             val cell = LinearLayout(this@GlassHomeActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(LovableUi.run { dp(4) }, LovableUi.run { dp(10) }, LovableUi.run { dp(4) }, LovableUi.run { dp(10) })
-                background = LovableUi.run { rounded(Color.WHITE, 20, LovableUi.border) }
+                setPadding(LovableUi.run { dp(4) }, LovableUi.run { dp(11) }, LovableUi.run { dp(4) }, LovableUi.run { dp(11) })
+                background = LovableUi.run { rounded(Color.WHITE, 22, LovableUi.border, 1) }
+                elevation = LovableUi.run { dp(3).toFloat() }
+                translationZ = LovableUi.run { dp(1).toFloat() }
                 addView(TextView(this@GlassHomeActivity).apply {
                     text = icon
                     textSize = 19f
                     gravity = Gravity.CENTER
-                    setTextColor(LovableUi.secondaryText)
-                    background = LovableUi.run { rounded(LovableUi.secondarySoft, 14, LovableUi.secondarySoft, 0) }
-                }, LinearLayout.LayoutParams(LovableUi.run { dp(38) }, LovableUi.run { dp(38) }))
+                    setTextColor(toneFg)
+                    background = LovableUi.run { rounded(toneBg, 15, toneBg, 0) }
+                    elevation = LovableUi.run { dp(1).toFloat() }
+                }, LinearLayout.LayoutParams(LovableUi.run { dp(40) }, LovableUi.run { dp(40) }))
                 addView(LovableUi.run { text(label, 11f, LovableUi.foreground, true) }.apply { gravity = Gravity.CENTER; setPadding(0, LovableUi.run { dp(6) }, 0, 0) })
-                setOnClickListener { click() }
+                setOnTouchListener { v, ev ->
+                    when (ev.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            v.translationY = LovableUi.run { dp(2).toFloat() }
+                            v.scaleX = 0.97f
+                            v.scaleY = 0.97f
+                            v.elevation = LovableUi.run { dp(1).toFloat() }
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            v.animate().translationY(0f).scaleX(1f).scaleY(1f).setDuration(120).withEndAction { click() }.start()
+                            v.elevation = LovableUi.run { dp(3).toFloat() }
+                            true
+                        }
+                        MotionEvent.ACTION_CANCEL -> {
+                            v.animate().translationY(0f).scaleX(1f).scaleY(1f).setDuration(100).start()
+                            v.elevation = LovableUi.run { dp(3).toFloat() }
+                            true
+                        }
+                        else -> false
+                    }
+                }
             }
-            addView(cell, LinearLayout.LayoutParams(0, LovableUi.run { dp(84) }, 1f).apply { marginStart = LovableUi.run { dp(3) }; marginEnd = LovableUi.run { dp(3) } })
+            addView(cell, LinearLayout.LayoutParams(0, LovableUi.run { dp(88) }, 1f).apply { marginStart = LovableUi.run { dp(3) }; marginEnd = LovableUi.run { dp(3) } })
         }
-        add("تحلیل", "▷") { startActivity(Intent(this@GlassHomeActivity, NewAnalysisActivity::class.java)) }
-        add("صف", "▱") { startActivity(Intent(this@GlassHomeActivity, ViralShareActivity::class.java)) }
-        add("سناریو", "✦") { startActivity(Intent(this@GlassHomeActivity, ScenarioStudioActivity::class.java)) }
-        add("حافظه", "↗") { startActivity(Intent(this@GlassHomeActivity, MemoryActivity::class.java)) }
+        add("تحلیل", "▷", LovableUi.primarySoft, LovableUi.primary) { startActivity(Intent(this@GlassHomeActivity, NewAnalysisActivity::class.java)) }
+        add("صف", "▱", LovableUi.secondarySoft, LovableUi.secondaryText) { startActivity(Intent(this@GlassHomeActivity, ViralShareActivity::class.java)) }
+        add("سناریو", "✦", Color.rgb(254, 245, 222), LovableUi.warning) { startActivity(Intent(this@GlassHomeActivity, ScenarioStudioActivity::class.java)) }
+        add("حافظه", "↗", LovableUi.mutedBg, LovableUi.foreground) { startActivity(Intent(this@GlassHomeActivity, MemoryActivity::class.java)) }
     }
 
     private fun sectionHeader(title: String, action: String, click: () -> Unit): View = LinearLayout(this).apply {
