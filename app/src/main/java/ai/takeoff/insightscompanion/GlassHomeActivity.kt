@@ -109,6 +109,14 @@ class GlassHomeActivity : Activity() {
             addView(LovableUi.run { text("کسب‌وکارت رو توضیح بده؛ تیک‌آف سناریوش رو می‌سازه.", 14f, LovableUi.foreground, true) })
             addView(LovableUi.run { text("۱۰ سناریوی متمایز با تعداد سکانس پویا، قلاب، دیالوگ، زمان‌بندی، بازیگر و PDF آماده ضبط.", 12f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(7) }, 0, LovableUi.run { dp(12) }) })
             addView(LovableUi.run { primaryButton("ورود به استودیوی سناریو") { startActivity(Intent(this@GlassHomeActivity, ScenarioStudioActivity::class.java)) } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }))
+        }, LovableUi.run { margin(bottom = 16) })
+
+        body.addView(sectionHeader("استودیو ویدیوی AI", "ساخت با Omni") { startActivity(Intent(this, AiVideoStudioActivity::class.java)) })
+        body.addView(LovableUi.run { card(true) }.apply {
+            addView(LovableUi.run { chip("✦ AI Video Studio • Flow & Omni", "primary") })
+            addView(LovableUi.run { text("تولید ویدیوی هوش مصنوعی فوق‌طبیعی و ۱۰ ثانیه‌ای", 14.5f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(8) }, 0, 0) })
+            addView(LovableUi.run { text("طراحی یک ویدیوی کامل AI، پرامپت‌های تفکیک‌شده دوربین گوشی موبایل (iPhone 15 Pro)، بدون حس پلاستیکی هوش مصنوعی و امکان استخراج PDF کامل.", 12f, LovableUi.muted) }.apply { setPadding(0, LovableUi.run { dp(6) }, 0, LovableUi.run { dp(12) }) })
+            addView(LovableUi.run { primaryButton("ورود به استودیو AI") { startActivity(Intent(this@GlassHomeActivity, AiVideoStudioActivity::class.java)) } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }))
         })
 
         scroll.addView(content.apply { addView(body) })
@@ -342,8 +350,9 @@ class GlassHomeActivity : Activity() {
             addView(cell, LinearLayout.LayoutParams(0, LovableUi.run { dp(96) }, 1f).apply { marginStart = LovableUi.run { dp(4) }; marginEnd = LovableUi.run { dp(4) } })
         }
         add("تحلیل", "▷", Color.rgb(180, 52, 10), Color.rgb(255, 130, 52), Color.rgb(245, 96, 32)) { startActivity(Intent(this@GlassHomeActivity, NewAnalysisActivity::class.java)) }
-        add("صف", "▱", Color.rgb(12, 44, 56), Color.rgb(0, 229, 255), Color.rgb(0, 160, 190)) { startActivity(Intent(this@GlassHomeActivity, ViralShareActivity::class.java)) }
+        add("استودیو AI", "⚡", Color.rgb(40, 16, 68), Color.rgb(192, 132, 252), Color.rgb(147, 51, 234)) { startActivity(Intent(this@GlassHomeActivity, AiVideoStudioActivity::class.java)) }
         add("سناریو", "✦", Color.rgb(52, 36, 12), Color.rgb(255, 185, 45), Color.rgb(230, 140, 20)) { startActivity(Intent(this@GlassHomeActivity, ScenarioStudioActivity::class.java)) }
+        add("صف", "▱", Color.rgb(12, 44, 56), Color.rgb(0, 229, 255), Color.rgb(0, 160, 190)) { startActivity(Intent(this@GlassHomeActivity, ViralShareActivity::class.java)) }
         add("حافظه", "↗", Color.rgb(36, 20, 60), Color.rgb(168, 85, 247), Color.rgb(126, 34, 206)) { startActivity(Intent(this@GlassHomeActivity, MemoryActivity::class.java)) }
     }
 

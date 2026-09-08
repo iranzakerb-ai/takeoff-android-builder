@@ -87,7 +87,12 @@ class AiVideoStudioActivity : Activity() {
             adapter = ArrayAdapter(
                 this@AiVideoStudioActivity,
                 android.R.layout.simple_spinner_dropdown_item,
-                listOf("ویدیوی AI سینمایی • چندسکانسه", "ویدیوی AI وایرال ۱۰ ثانیه‌ای • تک‌سکانسه"),
+                listOf(
+                    "ویدیوی AI سینمایی • چندسکانسه با دیالوگ",
+                    "ویدیوی AI سینمایی • چندسکانسه بدون دیالوگ",
+                    "ویدیوی AI وایرال ۱۰ ثانیه‌ای • تک‌سکانسه با دیالوگ",
+                    "ویدیوی AI وایرال ۱۰ ثانیه‌ای • تک‌سکانسه بدون دیالوگ",
+                ),
             )
             setSelection(0)
             background = LovableUi.run { rounded(Color.WHITE, 18, LovableUi.border) }
@@ -140,7 +145,12 @@ class AiVideoStudioActivity : Activity() {
             n.length < 2 -> { showError("حوزه کاری را کمی واضح‌تر بنویس."); return }
             d.length < 2 -> { showError("توضیح کسب‌وکار را کمی واضح‌تر بنویس."); return }
         }
-        val selectedMode = if (mode.selectedItemPosition == 1) "viral_10s" else "cinematic"
+        val selectedMode = when (mode.selectedItemPosition) {
+            1 -> "cinematic_silent"
+            2 -> "viral_10s"
+            3 -> "viral_10s_silent"
+            else -> "cinematic"
+        }
         val transportDescription = if (d.length < 10) d.padEnd(10, ' ') else d
         val body = JSONObject().apply {
             put("niche", n)
@@ -148,8 +158,8 @@ class AiVideoStudioActivity : Activity() {
             put("audience", audience.text.toString().trim())
             put("offer", offer.text.toString().trim())
             put("production_constraints", constraints.text.toString().trim())
-            put("creative_preference", if (selectedMode == "viral_10s")
-                "Visual Micro-Spectacle تک‌سکانسه، دقیقاً ۱۰ ثانیه؛ دیالوگ فقط اگر ایده را قوی‌تر کند؛ SFX و ambience هوشمند"
+            put("creative_preference", if (selectedMode.startsWith("viral_10s"))
+                "Visual Micro-Spectacle تک‌سکانسه، دقیقاً ۱۰ ثانیه؛ بدون دیالوگ و متمرکز بر تصویر شگفت‌انگیز؛ فوولی و صداگذاری طبیعی گوشی موبایل"
             else
                 "خودکار؛ بیشینه‌سازی Retention؛ تعداد سکانس مستقل از presetهای ۴/۶/۸/۱۰ Flow/Omni است؛ هر زمان می‌تواند تکرار شود و ترتیب اجباری ندارد")
             put("mode", selectedMode)
@@ -315,7 +325,24 @@ class AiVideoStudioActivity : Activity() {
             addView(LovableUi.run { text(video.optString("title"), 15f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(9) }, 0, 0) })
             addView(LovableUi.run { text("${LovableUi.fa(video.optInt("total_duration_seconds"))} ثانیه • ${LovableUi.fa(scenes.length())} سکانس • ${LovableUi.fa(characters.length())} کاراکتر\n${video.optString("core_idea")}", 12f, LovableUi.foreground) }.apply { setPadding(0, LovableUi.run { dp(7) }, 0, LovableUi.run { dp(10) }) })
             addView(LovableUi.run { primaryButton("نمایش پرامپت‌های آماده تولید") { showVideo(video) } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(50) }))
+            addView(LovableUi.run { ghostButton("دانلود و اشتراک‌گذاری PDF پرامپت‌ها") { exportAiVideoPdf(root) } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(48) }).apply { topMargin = LovableUi.run { dp(8) } })
         }, LovableUi.run { margin(bottom = 12, top = 6) })
+    }
+
+    private fun exportAiVideoPdf(root: JSONObject) {
+        Toast.makeText(this, "در حال ایجاد PDF پرامپت‌های هوش مصنوعی…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val result = runCatching { TakeoffPdfExporter.exportAiVideoStudio(this, root) }.getOrNull()
+            runOnUiThread {
+                val cacheFile = result?.second
+                if (cacheFile != null && cacheFile.exists()) {
+                    Toast.makeText(this, "PDF در پوشه Downloads/TakeOff ذخیره شد.", Toast.LENGTH_LONG).show()
+                    TakeoffPdfExporter.shareOrViewPdf(this, cacheFile, "پرامپت‌های ویدیوی AI تیک‌آف")
+                } else {
+                    Toast.makeText(this, "ذخیره PDF انجام نشد.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     private fun showVideo(video: JSONObject) {

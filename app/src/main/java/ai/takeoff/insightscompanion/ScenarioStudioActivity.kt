@@ -73,7 +73,12 @@ class ScenarioStudioActivity : Activity() {
             adapter = ArrayAdapter(
                 this@ScenarioStudioActivity,
                 android.R.layout.simple_spinner_dropdown_item,
-                listOf("ساخت هوشمند سناریوهای وایرال", "ویدیوی کوتاه ۱۵ ثانیه‌ای • تک‌سکانسه"),
+                listOf(
+                    "هوشمند چندسکانسه • با دیالوگ (روایت پویا)",
+                    "هوشمند چندسکانسه • بدون دیالوگ (اکت تصویری و SFX)",
+                    "ویدیوی کوتاه ۱۵ ثانیه‌ای • با دیالوگ (تک‌سکانسه)",
+                    "ویدیوی کوتاه ۱۵ ثانیه‌ای • بدون دیالوگ (تک‌سکانسه وایرال)",
+                ),
             )
             setSelection(0)
             background = LovableUi.run { rounded(Color.WHITE, 18, LovableUi.border) }
@@ -127,16 +132,19 @@ class ScenarioStudioActivity : Activity() {
         val n = niche.text.toString().trim()
         val d = description.text.toString().trim()
         if (n.length < 2 || d.length < 2) { showError("حوزه و توضیح کسب‌وکار را وارد کن."); return }
-        val selectedMode = if (mode.selectedItemPosition == 1) "short_15s" else "smart"
+        val selectedMode = when (mode.selectedItemPosition) {
+            1 -> "smart_silent"
+            2 -> "short_15s"
+            3 -> "short_15s_silent"
+            else -> "smart"
+        }
         generate.isEnabled = false
-        status.text = if (selectedMode == "short_15s")
+        status.text = if (selectedMode.startsWith("short_15s"))
             "حافظه تیک‌آف ← طراحی ۱۰ ایده تک‌سکانسه ۱۵ ثانیه‌ای ← انتخاب دیالوگ/اکت و صدا ← داوری Retention…"
         else
             "شناخت کسب‌وکار ← بررسی حافظه تیک‌آف ← طراحی قلاب‌ها ← ساخت سناریوها ← داوری تنوع و Retention…"
         status.setTextColor(LovableUi.primary)
         results.removeAllViews()
-        // Production backend v0.19.0 historically required 10 chars. Padding only
-        // protects older deployments; the semantic text remains unchanged after trim.
         val transportDescription = if (d.length < 10) d.padEnd(10, ' ') else d
         val body = JSONObject().apply {
             put("niche", n)
@@ -208,13 +216,19 @@ class ScenarioStudioActivity : Activity() {
             "بسته ${LovableUi.fa(items.length())} سناریویی آماده است • شواهد حافظه: ${LovableUi.fa(root.optInt("memory_evidence_count"))}"
         status.setTextColor(LovableUi.success)
         results.removeAllViews()
-        results.addView(LovableUi.run { primaryButton("خروجی PDF فارسی همه سناریوها") {
-            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                type = "application/pdf"
-                addCategory(Intent.CATEGORY_OPENABLE)
-                putExtra(Intent.EXTRA_TITLE, "TakeOff-Scenario-Studio.pdf")
-            }, PDF_REQUEST)
-        } }, LinearLayout.LayoutParams(-1, LovableUi.run { dp(52) }).apply { topMargin = LovableUi.run { dp(8) }; bottomMargin = LovableUi.run { dp(14) } })
+        val pdfActionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+        val exportPdfBtn = LovableUi.run { primaryButton("دانلود و باز کردن PDF فارسی") {
+            exportPdfDirectly(root, shareAfter = false)
+        } }
+        val sharePdfBtn = LovableUi.run { ghostButton("اشتراک‌گذاری PDF") {
+            exportPdfDirectly(root, shareAfter = true)
+        } }
+        pdfActionRow.addView(exportPdfBtn, LinearLayout.LayoutParams(0, LovableUi.run { dp(50) }, 1.3f).apply { marginEnd = LovableUi.run { dp(5) } })
+        pdfActionRow.addView(sharePdfBtn, LinearLayout.LayoutParams(0, LovableUi.run { dp(50) }, 1.0f).apply { marginStart = LovableUi.run { dp(5) } })
+        results.addView(pdfActionRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = LovableUi.run { dp(8) }; bottomMargin = LovableUi.run { dp(14) } })
 
         for (i in 0 until items.length()) {
             val s = items.optJSONObject(i) ?: continue
@@ -250,6 +264,22 @@ class ScenarioStudioActivity : Activity() {
         }
         val scroll = ScrollView(this).apply { addView(host) }
         android.app.AlertDialog.Builder(this).setTitle(s.optString("title")).setView(scroll).setPositiveButton("بستن", null).show()
+    }
+
+    private fun exportPdfDirectly(root: JSONObject, shareAfter: Boolean) {
+        Toast.makeText(this, "در حال ایجاد PDF فارسی با کیفیت بالا…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val result = runCatching { TakeoffPdfExporter.exportScenarioStudio(this, root) }.getOrNull()
+            runOnUiThread {
+                val cacheFile = result?.second
+                if (cacheFile != null && cacheFile.exists()) {
+                    Toast.makeText(this, "PDF در پوشه Downloads/TakeOff ذخیره شد.", Toast.LENGTH_LONG).show()
+                    TakeoffPdfExporter.shareOrViewPdf(this, cacheFile, "۱۰ سناریوی تیک‌آف")
+                } else {
+                    Toast.makeText(this, "ذخیره PDF انجام نشد.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
