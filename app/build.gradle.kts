@@ -4,7 +4,7 @@ plugins {
 }
 
 val takeoffProductionEndpoint = providers.environmentVariable("TAKEOFF_PRODUCTION_ENDPOINT")
-    .orElse("https://takeoff-seven-puce.vercel.app").get().trim().trimEnd('/')
+    .orElse("https://takeoff-virality-engine.vercel.app").get().trim().trimEnd('/')
 val escapedTakeoffProductionEndpoint = takeoffProductionEndpoint.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "ai.takeoff.insightscompanion"
         minSdk = 26; targetSdk = 35
-        versionCode = 65
-        versionName = "0.20.5"
+        versionCode = 66
+        versionName = "0.20.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "TAKEOFF_PRODUCTION_ENDPOINT", "\"$escapedTakeoffProductionEndpoint\"")
     }

@@ -7,8 +7,8 @@ import java.net.URL
 import java.net.URLEncoder
 
 object PayloadClient {
-    private const val DEFAULT_PRODUCTION_ENDPOINT = "https://takeoff-seven-puce.vercel.app"
-    private const val FALLBACK_PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.vercel.app"
+    private const val DEFAULT_PRODUCTION_ENDPOINT = "https://takeoff-virality-engine.vercel.app"
+    private const val FALLBACK_PRODUCTION_ENDPOINT = "https://takeoff-seven-puce.vercel.app"
     val PRODUCTION_ENDPOINT: String = BuildConfig.TAKEOFF_PRODUCTION_ENDPOINT
         .trim()
         .trimEnd('/')

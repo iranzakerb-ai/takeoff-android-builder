@@ -1,4 +1,4 @@
-﻿name: Build TakeOff Insights 0.20.5 Final
+﻿name: Build TakeOff Insights 0.20.6 Final
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: takeoff-v0205-final-${{ github.ref }}
+  group: takeoff-v0206-final-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      TAKEOFF_PRODUCTION_ENDPOINT: https://takeoff-seven-puce.vercel.app
+      TAKEOFF_PRODUCTION_ENDPOINT: https://takeoff-virality-engine.vercel.app
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +26,8 @@ jobs:
         run: |
           set -euo pipefail
           SRC='app/src/main/java/ai/takeoff/insightscompanion'
-          grep -q 'versionCode = 65' app/build.gradle.kts
-          grep -q 'versionName = "0.20.5"' app/build.gradle.kts
+          grep -q 'versionCode = 66' app/build.gradle.kts
+          grep -q 'versionName = "0.20.6"' app/build.gradle.kts
           grep -q 'GlassHomeActivity' app/src/main/AndroidManifest.xml
           grep -q 'ScenarioStudioActivity' app/src/main/AndroidManifest.xml
           grep -q 'AiVideoStudioActivity' app/src/main/AndroidManifest.xml
@@ -85,7 +85,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='65' versionName='0.20.5'" apk-badging.txt
+          grep -F "package: name='ai.takeoff.insightscompanion' versionCode='66' versionName='0.20.6'" apk-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'GlassHomeActivity' apk-manifest.txt
@@ -97,21 +97,21 @@ jobs:
           ! grep -q 'android.permission.RECORD_AUDIO' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
-          cp "$APK" TakeOff-Insights-0.20.5.apk
+          cp "$APK" TakeOff-Insights-0.20.6.apk
           echo 'DADSTAN_APK_FORENSICS=PASS'
 
       - name: Upload final APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.20.5
-          path: TakeOff-Insights-0.20.5.apk
+          name: TakeOff-Insights-0.20.6
+          path: TakeOff-Insights-0.20.6.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload forensic reports artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TakeOff-Insights-0.20.5-forensics
+          name: TakeOff-Insights-0.20.6-forensics
           path: |
             apk-badging.txt
             apk-signing.txt
@@ -125,18 +125,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v0.20.5
-          name: "TakeOff Insights v0.20.5 (Build 65 — Parallel 5-Lane & Silent DM Learning)"
+          tag_name: v0.20.6
+          name: "TakeOff Insights v0.20.6 (Build 66 — Parallel 5-Lane & Silent DM Learning)"
           body: |
-            ## TakeOff Insights v0.20.5 — Official Release
+            ## TakeOff Insights v0.20.6 — Official Release
             - **Application ID**: `ai.takeoff.insightscompanion`
-            - **Version Name**: `0.20.5`
+            - **Version Name**: `0.20.6`
             - **Version Code**: `65`
             - **Launcher**: `GlassHomeActivity`
             - **Features**: 5-Lane Parallel Queue, In-App Live Notifications, Direct Queue Entry Card, Silent DM Inbox Processor
             - **Audit**: DADSTAN Forensic Gate PASSED
           files: |
-            TakeOff-Insights-0.20.5.apk
+            TakeOff-Insights-0.20.6.apk
             apk-badging.txt
             apk-signing.txt
             apk-manifest.txt
