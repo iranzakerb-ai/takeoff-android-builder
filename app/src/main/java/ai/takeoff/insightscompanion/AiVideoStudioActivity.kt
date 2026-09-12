@@ -452,20 +452,70 @@ class AiVideoStudioActivity : Activity() {
         return last
     }
 
+    private var selectedConceptIndex = 0
+
     private fun renderPackage(root: JSONObject) {
-        val video = root.optJSONObject("video") ?: root.optJSONArray("videos")?.optJSONObject(0)
+        selectedConceptIndex = 0
+        renderSelectedConcept(root)
+    }
+
+    private fun renderSelectedConcept(root: JSONObject) {
+        val videos = root.optJSONArray("videos")
+        val video = (if (videos != null && videos.length() > selectedConceptIndex) {
+            videos.optJSONObject(selectedConceptIndex)
+        } else null) ?: root.optJSONObject("video") ?: videos?.optJSONObject(0)
+
         if (video == null) { showError("سناریوی نهایی در پاسخ پیدا نشد."); return }
         val scenes = video.optJSONArray("scenes") ?: JSONArray()
         val characters = video.optJSONArray("characters") ?: JSONArray()
         val isViral10 = root.optString("mode") == "viral_10s" || root.optString("mode") == "viral_10s_silent" ||
                 (video.optInt("total_duration_seconds") == 10 && scenes.length() == 1)
 
+        val rankDisplay = video.optInt("rank", selectedConceptIndex + 1)
+        val rankLabel = if (rankDisplay == 1) "برنده #۱" else "#$rankDisplay"
+
         status.text = if (isViral10)
-            "ویدیوی وایرال ۱۰ ثانیه‌ای آماده • ۱ سکانس • Omni Prompt آماده کپی"
+            "ویدیوی ۱۰ ثانیه‌ای ($rankLabel) • ۱ سکانس • Omni Prompt آماده کپی"
         else
-            "ویدیوی نهایی آماده • ${LovableUi.fa(root.optInt("candidate_count_considered", 0))} ایده داوری شد • ${LovableUi.fa(scenes.length())} سکانس"
+            "سناریوی ویدیویی ($rankLabel) • ${LovableUi.fa(root.optInt("candidate_count_considered", 0))} ایده داوری شد • ${LovableUi.fa(scenes.length())} سکانس • Omni Cinematic"
         status.setTextColor(LovableUi.success)
         results.removeAllViews()
+
+        // 10 Ranked Concepts Selector
+        if (videos != null && videos.length() > 1) {
+            results.addView(LovableUi.run { sectionTitle("انتخاب از بین ۱۰ ایده برتر داوری‌شده") }, LovableUi.run { margin(bottom = 6) })
+            val hScroll = HorizontalScrollView(this).apply {
+                overScrollMode = View.OVER_SCROLL_NEVER
+                isHorizontalScrollBarEnabled = false
+            }
+            val selectorRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutDirection = View.LAYOUT_DIRECTION_RTL
+                setPadding(0, LovableUi.run { dp(2) }, 0, LovableUi.run { dp(8) })
+            }
+            for (idx in 0 until videos.length()) {
+                val vItem = videos.optJSONObject(idx) ?: continue
+                val rNum = vItem.optInt("rank", idx + 1)
+                val isSel = idx == selectedConceptIndex
+                val chipText = if (rNum == 1) "🏆 ایده #۱ (برنده)" else "ایده #$rNum"
+                val chipTone = if (isSel) "primary" else "secondary"
+                val chipView = LovableUi.run { chip(chipText, chipTone) }.apply {
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        if (selectedConceptIndex != idx) {
+                            selectedConceptIndex = idx
+                            renderSelectedConcept(root)
+                        }
+                    }
+                }
+                selectorRow.addView(chipView, LinearLayout.LayoutParams(-2, -2).apply {
+                    marginStart = LovableUi.run { dp(6) }
+                })
+            }
+            hScroll.addView(selectorRow)
+            results.addView(hScroll, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = LovableUi.run { dp(8) } })
+        }
 
         if (isViral10) {
             renderViral10Package(root, video, scenes)
@@ -479,6 +529,9 @@ class AiVideoStudioActivity : Activity() {
             if (scenes.length() > 0) scenes.optJSONObject(0)?.optString("omni_prompt").orEmpty() else video.optString("omni_prompt")
         }
 
+        val rankNum = video.optInt("rank", selectedConceptIndex + 1)
+        val rankBadge = if (rankNum == 1) "ایده #۱ (برنده داوری)" else "ایده #$rankNum"
+
         results.addView(LovableUi.run { card(true) }.apply {
             val topRow = LinearLayout(this@AiVideoStudioActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -487,7 +540,7 @@ class AiVideoStudioActivity : Activity() {
             }
             topRow.addView(LovableUi.run { chip("Visual Micro-Spectacle • ۱۰ ثانیه", "primary") })
             topRow.addView(View(this@AiVideoStudioActivity), LinearLayout.LayoutParams(0, 1, 1f))
-            topRow.addView(LovableUi.run { chip("iPhone 15 Pro Realism", "secondary") })
+            topRow.addView(LovableUi.run { chip(rankBadge, "secondary") })
             addView(topRow)
 
             addView(LovableUi.run { text(video.optString("title"), 16f, LovableUi.foreground, true) }.apply { setPadding(0, LovableUi.run { dp(10) }, 0, 0) })
