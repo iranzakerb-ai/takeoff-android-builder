@@ -131,7 +131,7 @@ jobs:
             ## TakeOff Insights v0.20.7 — Official Release
             - **Application ID**: `ai.takeoff.insightscompanion`
             - **Version Name**: `0.20.7`
-            - **Version Code**: `66`
+            - **Version Code**: `67`
             - **Launcher**: `GlassHomeActivity`
             - **Signing**: `DEBUG-SIGNED SIDELOAD RELEASE` (`CN=Android Debug`, APK Signature Scheme v2)
             - **Features**: 5-Lane Parallel Queue, In-App Live Notifications, Direct Queue Entry Card, Silent DM Inbox Processor
