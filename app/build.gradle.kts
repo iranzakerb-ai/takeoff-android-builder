@@ -13,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "ai.takeoff.insightscompanion"
         minSdk = 26; targetSdk = 35
-        versionCode = 67
-        versionName = "0.20.7"
+        versionCode = 68
+        versionName = "0.20.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "TAKEOFF_PRODUCTION_ENDPOINT", "\"$escapedTakeoffProductionEndpoint\"")
     }
@@ -39,4 +39,4 @@ dependencies {
     testImplementation("org.json:json:20250517")
 }
 
-// 0.19.2: tactile 3D glass depth, multi-endpoint failover, and elevated visual intelligence.
+// 0.20.8: strict E2E verified release — Share→Analysis flow, no DM dependency.
