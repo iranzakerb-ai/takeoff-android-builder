@@ -1,3 +1,13 @@
+> **TAKEOFF GOVERNANCE — CURRENT OWNER DECISIONS (v1.0 candidate; merge-dependent)**
+>
+> Canonical source after its reviewed merge: [TakeOff Master Constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) (the Engine repository is the only authoritative copy).
+> Review candidate: [v1.0 governance branch](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/governance/takeoff-constitution-v1-20261019/docs/TAKEOFF_MASTER_CONSTITUTION.md).
+> Before changing product behavior, verify the canonical file exists at the selected commit, identify applicable `GOV-/PRD-/MGT-/CUS-/ENG-/INF-/EXE-` rule IDs, and report any `SPEC_CONFLICT` with older documents; do not guess unresolved `Q-01`–`Q-07`.
+> New owner decisions: **Customer has two offerings only** (`CUS-001`): ordinary Studio creates **10** (`CUS-002`), Reel-to-niche creates **1** (`CUS-003`), and Customer service use has **no mandatory visible login/OTP/profile** (`CUS-004`); preserve secure server-side access. Gemini effective verified Free Tier only (`ENG-006`).
+> These lines supplement historical AGENTS/PRODUCT_CONSTITUTION documentation; when product directions conflict, seek the current owner-approved decision and do not reinstate superseded features. This governance-only PR **does not authorize source changes, Production deployment, billing, credential rotation, or AI inference**.
+
+---
+
 # AI / AGENT START HERE
 
 Before reading implementation details or changing this repository, read **`PRODUCT_CONSTITUTION.md` in full**.
