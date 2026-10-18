@@ -1,9 +1,9 @@
 # TakeOff governance entrypoint — v1.0.0 CANDIDATE
 
-ADOPTION_STATUS=CANDIDATE; OWNER_APPROVAL=PENDING. This task authorizes governance completion, not whole-document ratification or product/Production changes.
+ADOPTION_STATUS=CANDIDATE; OWNER_APPROVAL=APPROVED (owner explicitly ratified v1.0 locked rules on 2026-10-19; Q-01–Q-07 remain UNRESOLVED). Approval of product rules does NOT authorize skipping independent review/required CI checks, GitHub merges, feature changes or Production actions.
 
 Canonical destination: [Engine Master Constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md).
-Review candidate: [existing Engine PR #78](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/78). Pinned review snapshot (NOT owner-adopted): [240bec43a92347c39c991cf47033f4b89d337a18](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/240bec43a92347c39c991cf47033f4b89d337a18/docs/TAKEOFF_MASTER_CONSTITUTION.md). Before adoption, read that PR's exact head SHA and disclose candidate status. After owner approval and reviewed merge, pin the approved SHA in this pointer; never label a moving branch approved.
+Review candidate: [existing Engine PR #78](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/78). Owner-ratified locked-rules snapshot (NOT merged/adopted on `main`): [c9739f115c3b21d6ee768188e0fc1fe9f08f1a0c](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/c9739f115c3b21d6ee768188e0fc1fe9f08f1a0c/docs/TAKEOFF_MASTER_CONSTITUTION.md). Before adoption, read that PR's exact head SHA and disclose candidate status. After independent review, required checks and reviewed merge, pin the operationally adopted SHA in this pointer; never label a moving branch as already merged.
 
 Applicable product: `MANAGEMENT`. Applicable rule IDs: MGT-001, MGT-002, MGT-003, MGT-004, MGT-005, MGT-006, MGT-007; ENG-006; EXE-003. Read the canonical document before product work; no second canonical copy in this repository. Latest explicit owner-approved decisions outrank approved constitution, applicable technical contracts, implementation evidence, historical docs, then AI recommendations (GOV-001).
 
