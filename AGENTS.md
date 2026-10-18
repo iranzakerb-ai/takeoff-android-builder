@@ -1,10 +1,19 @@
-> **TAKEOFF GOVERNANCE — CURRENT OWNER DECISIONS (v1.0 candidate; merge-dependent)**
->
-> Canonical source after its reviewed merge: [TakeOff Master Constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) (the Engine repository is the only authoritative copy).
-> Review candidate: [v1.0 governance branch](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/governance/takeoff-constitution-v1-20261019/docs/TAKEOFF_MASTER_CONSTITUTION.md).
-> Before changing product behavior, verify the canonical file exists at the selected commit, identify applicable `GOV-/PRD-/MGT-/CUS-/ENG-/INF-/EXE-` rule IDs, and report any `SPEC_CONFLICT` with older documents; do not guess unresolved `Q-01`–`Q-07`.
-> New owner decisions: **Customer has two offerings only** (`CUS-001`): ordinary Studio creates **10** (`CUS-002`), Reel-to-niche creates **1** (`CUS-003`), and Customer service use has **no mandatory visible login/OTP/profile** (`CUS-004`); preserve secure server-side access. Gemini effective verified Free Tier only (`ENG-006`).
-> These lines supplement historical AGENTS/PRODUCT_CONSTITUTION documentation; when product directions conflict, seek the current owner-approved decision and do not reinstate superseded features. This governance-only PR **does not authorize source changes, Production deployment, billing, credential rotation, or AI inference**.
+# TakeOff governance entrypoint — v1.0.0 CANDIDATE
+
+ADOPTION_STATUS=CANDIDATE; OWNER_APPROVAL=PENDING. This task authorizes governance completion, not whole-document ratification or product/Production changes.
+
+Canonical destination: [Engine Master Constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md).
+Review candidate: [existing Engine PR #78](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/78). Pinned review snapshot (NOT owner-adopted): [240bec43a92347c39c991cf47033f4b89d337a18](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/240bec43a92347c39c991cf47033f4b89d337a18/docs/TAKEOFF_MASTER_CONSTITUTION.md). Before adoption, read that PR's exact head SHA and disclose candidate status. After owner approval and reviewed merge, pin the approved SHA in this pointer; never label a moving branch approved.
+
+Applicable product: `MANAGEMENT`. Applicable rule IDs: MGT-001, MGT-002, MGT-003, MGT-004, MGT-005, MGT-006, MGT-007; ENG-006; EXE-003. Read the canonical document before product work; no second canonical copy in this repository. Latest explicit owner-approved decisions outrank approved constitution, applicable technical contracts, implementation evidence, historical docs, then AI recommendations (GOV-001).
+
+Owner locks: Customer has TWO services; Studio TEN without Reel; Viral Reel ONE from URL+niche; no mandatory visible Customer registration/phone/OTP/Google/login. Server-side ownership, security, quotas and isolation remain mandatory. Management's two learning missions (authorized Owner Outcomes and public Viral Reel Learning) are distinct from those two Customer services. Supporting Management tools remain governed by existing decisions; Q-01–Q-07 stay UNRESOLVED. Gemini verified Free Tier only; no paid or non-Gemini fallback.
+
+Every task records one goal, product, allowed scope, rule IDs, exact baseline, expected files, non-goals, acceptance tests, time/work budget, stop conditions and deliverables (section 8B). Use small verifiable checkpoints. EXE-003: after TWO substantially identical failures stop that approach, choose ONE bounded alternative, then report any blocker and finish independent safe work. No unbounded loop or unnecessary broad suite/audit.
+
+Governance-only checks: run the Engine `scripts/validate_takeoff_constitution.py` with the three checkout roots, and `tests/test_master_constitution_contract.py`. DOCUMENT_GATES do not prove PRODUCT_CONTRACT_GATES or LIVE_RELEASE_GATES. PRODUCT_RUNTIME_COMPLIANCE=NOT_TESTED.
+
+Historical instructions below are retained evidence. Any incompatible visible-login, third-Customer-service, old design or provider requirement is a named SPEC_CONFLICT, not authority to restore it. Record known old behavior as PREEXISTING_PRODUCT_NONCOMPLIANCE; this mission does not repair it. No hook/check bypass or automatic merge. Product work needs its own scope.
 
 ---
 

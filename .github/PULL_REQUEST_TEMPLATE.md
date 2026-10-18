@@ -1,6 +1,6 @@
 # TakeOff — bounded, rules-first change request
 
-Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at a specific commit (if not yet merged, use its approved candidate and disclose that status).
+Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at a specific commit (before adoption use PR #78 exact head SHA and label it CANDIDATE, OWNER_APPROVAL=PENDING).
 
 **PRODUCT:** MANAGEMENT | CUSTOMER | SHARED_ENGINE | GOVERNANCE
 
@@ -10,11 +10,23 @@ Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-viral
 
 **OWNER_CHANGE_ID:** NONE (preserves rules) | CR-YYYYMMDD-NN (requires explicit approval)
 
+**BASELINE:** exact repository, branch and SHA; prior verified evidence.
+
 **CHANGED_PATHS:**
 
 **NON_GOALS / PROTECTED_PATHS:**
 
 **ACCEPTANCE_GATES:** G-CUS-... / G-MGT-... / G-ENG-... / G-SEC-... / G-REL-...
+
+**TIME_WORK_BUDGET:**
+
+**STOP_CONDITIONS:** two substantially identical failures → one bounded alternative; stop at scope/budget/security boundary.
+
+**EXPECTED_DELIVERABLES / CHECKPOINTS:**
+
+**DOCUMENT_GATES:** command + actual result; not product compliance.
+
+**PRODUCT_CONTRACT_GATES / LIVE_RELEASE_GATES:** actual environment/SHA or NOT_TESTED.
 
 **PROOF:** local test output, exact SHA, Preview results if applicable; mark fixture separately from live E2E.
 
