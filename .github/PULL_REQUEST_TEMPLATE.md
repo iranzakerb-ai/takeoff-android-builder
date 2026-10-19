@@ -1,6 +1,6 @@
 # TakeOff — bounded, rules-first change request
 
-Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at a specific commit (before adoption use PR #78 exact head SHA and label it CANDIDATE, OWNER_APPROVAL=PENDING).
+Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at a specific commit (before adoption use PR #78 exact head SHA and label it CANDIDATE; OWNER_APPROVAL=APPROVED for the v1.0 locked rules, Q-01–Q-07 UNRESOLVED, GOVERNANCE_MERGE=PENDING, PRODUCTION_CHANGE_AUTHORIZATION=NOT GRANTED).
 
 **PRODUCT:** MANAGEMENT | CUSTOMER | SHARED_ENGINE | GOVERNANCE
 
