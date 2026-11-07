@@ -1,0 +1,36 @@
+name: Android CI validation
+on:
+  push:
+    branches: [codex/android-ci-validation-20261107]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-ci:
+    runs-on: [self-hosted, Linux, X64, takeoff-android]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 68' app/build.gradle.kts
+          grep -q 'versionName = "0.20.8"' app/build.gradle.kts
+          grep -q 'compileSdk = 35' app/build.gradle.kts
+          ! grep -Rni 'android.permission.RECORD_AUDIO' app/src/main
+      - name: Verify Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -version
+          command -v gradle || { echo "BLOCKED: Gradle 8.10.2 is unavailable"; exit 1; }
+          gradle --version
+          test -n "${ANDROID_HOME:-}" || { echo "BLOCKED: ANDROID_HOME is not configured"; exit 1; }
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar" || { echo "BLOCKED: Android SDK 35 is unavailable"; exit 1; }
+      - name: Unit tests and lint
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
