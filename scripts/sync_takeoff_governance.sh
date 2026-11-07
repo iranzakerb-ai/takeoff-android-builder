@@ -122,8 +122,8 @@ canonical_script_sha="$(sha256sum "$review_script" | awk '{print $1}')"
 if ! (cd "$tmp_review" && python3 scripts/validate_takeoff_constitution.py); then
   fail "canonical Master Constitution validator failed"
 fi
-if ! (cd "$tmp_review" && python3 -m pytest -q tests/test_master_constitution_contract.py); then
-  fail "canonical Master Constitution contract tests failed or pytest is unavailable"
+if ! (cd "$tmp_review" && python3 tests/test_master_constitution_contract.py); then
+  fail "canonical Master Constitution contract tests failed or the standard-library contract test failed"
 fi
 
 doc_sha256="$(sha256sum "$review_doc" | awk '{print $1}')"
