@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fetches the approved TAKEOFF master constitution from GitHub main into a
-# read-only cache. It never changes an application worktree or checks out a branch.
+# Fetch and validate the owner-approved TAKEOFF master constitution from GitHub main.
+# Uses a separate bare cache and temporary review tree; never changes the application worktree.
 set -Eeuo pipefail
 umask 077
 
@@ -26,8 +26,19 @@ fail() {
 
 command -v git >/dev/null 2>&1 || fail "git is unavailable"
 command -v python3 >/dev/null 2>&1 || fail "python3 is unavailable"
-mkdir -p "$CACHE_ROOT"
+command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is unavailable"
+command -v readlink >/dev/null 2>&1 || fail "readlink is unavailable"
+command -v tar >/dev/null 2>&1 || fail "tar is unavailable"
 
+CURRENT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[[ -n "$CURRENT_ROOT" ]] || fail "run this script from inside one of the three TAKEOFF Git worktrees"
+[[ -f "$CURRENT_ROOT/AGENTS.md" ]] || fail "current repository has no root AGENTS.md"
+CURRENT_SCRIPT="$(readlink -f "$0")"
+[[ -f "$CURRENT_SCRIPT" ]] || fail "cannot resolve the current governance sync script"
+grep -Fq "TAKEOFF_MASTER_CONSTITUTION.md" "$CURRENT_ROOT/AGENTS.md" || fail "current AGENTS.md does not point to the master constitution"
+grep -Fq "scripts/sync_takeoff_governance.sh" "$CURRENT_ROOT/AGENTS.md" || fail "current AGENTS.md does not require governance sync"
+
+mkdir -p "$CACHE_ROOT"
 if [[ ! -e "$BARE_REPO" ]]; then
   tmp_repo="$CACHE_ROOT/.engine.git.$$"
   rm -rf -- "$tmp_repo"
@@ -57,14 +68,25 @@ if ! git --git-dir="$BARE_REPO" fetch --no-tags origin \
 fi
 
 main_sha="$(git --git-dir="$BARE_REPO" rev-parse refs/remotes/origin/main)"
-tmp_doc="$(mktemp "$CACHE_ROOT/.constitution.XXXXXX")"
-trap 'rm -f -- "$tmp_doc"' EXIT
+tmp_review="$(mktemp -d "$CACHE_ROOT/.review.XXXXXX")"
+trap 'rm -rf -- "$tmp_review"' EXIT
 
-if ! git --git-dir="$BARE_REPO" show "$main_sha:$DOC_PATH" >"$tmp_doc"; then
-  fail "canonical constitution is absent from GitHub main"
+if ! git --git-dir="$BARE_REPO" archive --format=tar "$main_sha" \
+  "$DOC_PATH" \
+  "AGENTS.md" \
+  ".github/PULL_REQUEST_TEMPLATE.md" \
+  "scripts/validate_takeoff_constitution.py" \
+  "scripts/sync_takeoff_governance.sh" \
+  "tests/test_master_constitution_contract.py" | tar -xf - -C "$tmp_review"; then
+  fail "cannot extract the governance review files from canonical main"
 fi
 
-if ! python3 - "$tmp_doc" "$MIN_VERSION" <<'PY'
+review_doc="$tmp_review/$DOC_PATH"
+review_script="$tmp_review/scripts/sync_takeoff_governance.sh"
+[[ -s "$review_doc" ]] || fail "canonical constitution is missing or empty"
+[[ -s "$review_script" ]] || fail "canonical sync script is missing or empty"
+
+if ! python3 - "$review_doc" "$MIN_VERSION" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -93,10 +115,21 @@ then
   fail "GitHub main does not yet contain the approved governance revision; do not use a stale or unmerged candidate"
 fi
 
-doc_sha256="$(sha256sum "$tmp_doc" | awk '{print $1}')"
+current_script_sha="$(sha256sum "$CURRENT_SCRIPT" | awk '{print $1}')"
+canonical_script_sha="$(sha256sum "$review_script" | awk '{print $1}')"
+[[ "$current_script_sha" == "$canonical_script_sha" ]] || fail "this repository's sync script differs from the canonical Engine main copy; update the repo pointer PR"
+
+if ! (cd "$tmp_review" && python3 scripts/validate_takeoff_constitution.py); then
+  fail "canonical Master Constitution validator failed"
+fi
+if ! (cd "$tmp_review" && python3 -m pytest -q tests/test_master_constitution_contract.py); then
+  fail "canonical Master Constitution contract tests failed or pytest is unavailable"
+fi
+
+doc_sha256="$(sha256sum "$review_doc" | awk '{print $1}')"
 snapshot_dir="$CACHE_ROOT/snapshots/$main_sha"
 mkdir -p "$snapshot_dir"
-install -m 0600 "$tmp_doc" "$snapshot_dir/TAKEOFF_MASTER_CONSTITUTION.md"
+install -m 0600 "$review_doc" "$snapshot_dir/TAKEOFF_MASTER_CONSTITUTION.md"
 meta_tmp="$snapshot_dir/.SOURCE.tmp.$$"
 {
   printf 'REPOSITORY=%s\n' "$REPO_SLUG"
@@ -104,6 +137,9 @@ meta_tmp="$snapshot_dir/.SOURCE.tmp.$$"
   printf 'COMMIT=%s\n' "$main_sha"
   printf 'DOCUMENT=%s\n' "$DOC_PATH"
   printf 'DOCUMENT_SHA256=%s\n' "$doc_sha256"
+  printf 'SYNC_SCRIPT_SHA256=%s\n' "$canonical_script_sha"
+  printf 'VALIDATOR=PASS\n'
+  printf 'CONTRACT_TESTS=PASS\n'
 } >"$meta_tmp"
 chmod 0600 "$meta_tmp"
 mv -f -- "$meta_tmp" "$snapshot_dir/SOURCE.txt"
@@ -113,5 +149,8 @@ printf 'REPOSITORY=%s\n' "$REPO_SLUG"
 printf 'REF=main\n'
 printf 'COMMIT=%s\n' "$main_sha"
 printf 'DOCUMENT_SHA256=%s\n' "$doc_sha256"
+printf 'SYNC_SCRIPT_SHA256=%s\n' "$canonical_script_sha"
+printf 'VALIDATOR=PASS\n'
+printf 'CONTRACT_TESTS=PASS\n'
 printf 'CACHED_DOCUMENT=%s\n' "$snapshot_dir/TAKEOFF_MASTER_CONSTITUTION.md"
 printf 'WORKTREE_MODIFIED=NO\n'
