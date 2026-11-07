@@ -30,7 +30,7 @@ Before any Android source, signing, release, CI or governance work, run:
 bash scripts/sync_takeoff_governance.sh
 ```
 
-The script fetches canonical Engine `main` into a separate bare Git cache, verifies the owner-approved minimum version and change ID, and writes an immutable SHA-addressed snapshot under `~/.cache/takeoff-governance/`. It does not modify the Android worktree.
+The script fetches canonical Engine `main` into a separate bare Git cache, verifies the owner-approved minimum version and change ID, checks that this repository's script matches canonical Engine `main`, runs the canonical Master Constitution validator and contract tests in a temporary review tree, and writes an immutable SHA-addressed snapshot under `~/.cache/takeoff-governance/`. It does not modify the Android worktree.
 
 Read the exact cached master constitution and record its Git commit and SHA-256. If sync returns `GOVERNANCE_SYNC=BLOCKED`, stop governance-sensitive work; do not use a stale cache or unmerged candidate as active authority. PR #78's exact candidate SHA may be used for review only when clearly labelled CANDIDATE.
 
