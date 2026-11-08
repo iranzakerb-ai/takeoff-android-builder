@@ -2,6 +2,8 @@ name: Android self-hosted validation
 
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/android-validation-only-20261108]
 
 permissions:
   contents: read
