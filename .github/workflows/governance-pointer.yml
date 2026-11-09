@@ -1,0 +1,31 @@
+name: Governance Pointer Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-governance-pointer:
+    name: Validate canonical Engine pointer and sync helpers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exact Engine candidate pointer and helper hashes
+        run: python scripts/validate_governance_pointer.py
+      - name: Test pointer validator
+        run: python tests/test_governance_pointer.py
+      - name: Validate sync script syntax
+        run: bash -n scripts/sync_takeoff_governance.sh
+      - name: Test read-only hash-verified snapshot
+        run: python tests/test_governance_snapshot.py
