@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dadstan-build:
+  android-release-build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: DADSTAN source contract
+      - name: Android source contract
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,7 @@ jobs:
           grep -q '/v4/scenario-studio/generate' "$SRC/ScenarioStudioActivity.kt"
           grep -q '/v4/ai-video-studio/generate' "$SRC/AiVideoStudioActivity.kt"
           ! grep -RniE 'OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}' app/src/main
-          echo 'DADSTAN_SOURCE_CONTRACT=PASS'
+          echo 'ANDROID_SOURCE_CONTRACT=PASS'
 
       - uses: actions/setup-java@v4
         with:
@@ -75,7 +75,7 @@ jobs:
       - name: Build final release APK
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: DADSTAN APK forensic verification
+      - name: APK artifact verification
         shell: bash
         run: |
           set -euo pipefail
@@ -98,7 +98,7 @@ jobs:
           sha256sum "$APK" | tee apk-sha256.txt
           stat -c 'APK_SIZE=%s' "$APK" | tee apk-size.txt
           cp "$APK" TakeOff-Insights-0.20.7.apk
-          echo 'DADSTAN_APK_FORENSICS=PASS'
+          echo 'APK_ARTIFACT_VERIFICATION=PASS'
 
       - name: Upload final APK artifact
         uses: actions/upload-artifact@v4
@@ -135,7 +135,7 @@ jobs:
             - **Launcher**: `GlassHomeActivity`
             - **Signing**: `DEBUG-SIGNED SIDELOAD RELEASE` (`CN=Android Debug`, APK Signature Scheme v2)
             - **Features**: 5-Lane Parallel Queue, In-App Live Notifications, Direct Queue Entry Card, Silent DM Inbox Processor
-            - **Audit**: DADSTAN Forensic Gate PASSED
+            - **Artifact verification**: PASSED
           files: |
             TakeOff-Insights-0.20.7.apk
             apk-badging.txt
