@@ -8,15 +8,35 @@ REPO_SLUG="iranzakerb-ai/takeoff-virality-engine"
 DOC_PATH="docs/TAKEOFF_MASTER_CONSTITUTION.md"
 MIN_VERSION="$(printenv TAKEOFF_GOVERNANCE_MIN_VERSION || true)"
 if [[ -z "$MIN_VERSION" ]]; then MIN_VERSION="1.1.0"; fi
-DEFAULT_REMOTE="git@github.com:iranzakerb-ai/takeoff-virality-engine.git"
-REMOTE="$(printenv TAKEOFF_GOVERNANCE_REMOTE || true)"
+DEFAULT_REMOTE="https://github.com/iranzakerb-ai/takeoff-virality-engine.git"
+CUSTOM_REMOTE="$(printenv TAKEOFF_GOVERNANCE_REMOTE || true)"
+REMOTE="$CUSTOM_REMOTE"
 if [[ -z "$REMOTE" ]]; then REMOTE="$DEFAULT_REMOTE"; fi
+
+# Prefer the existing authenticated GitHub CLI HTTPS session when available.
+# No token is printed, embedded in a URL, or written to the repository.
+GIT_AUTH_HELPER=()
+if [[ "$REMOTE" == "https://github.com/"* ]] && command -v gh >/dev/null 2>&1; then
+  if gh auth status --hostname github.com >/dev/null 2>&1; then
+    GIT_AUTH_HELPER=(-c credential.helper= -c credential.helper='!gh auth git-credential')
+  fi
+fi
+git_cmd() { command git "${GIT_AUTH_HELPER[@]}" "$@"; }
 CACHE_ROOT="$HOME/.cache/takeoff-governance"
 XDG_CACHE="$(printenv XDG_CACHE_HOME || true)"
 if [[ -n "$XDG_CACHE" ]]; then CACHE_ROOT="$XDG_CACHE/takeoff-governance"; fi
 CUSTOM_CACHE="$(printenv TAKEOFF_GOVERNANCE_CACHE || true)"
 if [[ -n "$CUSTOM_CACHE" ]]; then CACHE_ROOT="$CUSTOM_CACHE"; fi
 BARE_REPO="$CACHE_ROOT/engine.git"
+tmp_parent=""
+tmp_review=""
+
+cleanup() {
+  # Both paths are created exclusively by mktemp in this process.
+  if [[ -n "$tmp_review" && -d "$tmp_review" ]]; then rm -rf -- "$tmp_review"; fi
+  if [[ -n "$tmp_parent" && -d "$tmp_parent" ]]; then rm -rf -- "$tmp_parent"; fi
+}
+trap cleanup EXIT
 
 fail() {
   printf 'GOVERNANCE_SYNC=BLOCKED\nREASON=%s\n' "$1" >&2
@@ -40,13 +60,18 @@ grep -Fq "scripts/sync_takeoff_governance.sh" "$CURRENT_ROOT/AGENTS.md" || fail 
 
 mkdir -p "$CACHE_ROOT"
 if [[ ! -e "$BARE_REPO" ]]; then
-  tmp_repo="$CACHE_ROOT/.engine.git.$$"
-  rm -rf -- "$tmp_repo"
-  if ! git clone --bare --filter=blob:none "$REMOTE" "$tmp_repo"; then
-    rm -rf -- "$tmp_repo"
-    fail "cannot clone the private canonical Engine repository; verify GitHub SSH/credential access"
+  tmp_parent="$(mktemp -d "$CACHE_ROOT/.engine-clone.XXXXXX")" || fail "cannot create a unique temporary clone directory"
+  tmp_repo="$tmp_parent/engine.git"
+  if ! git_cmd clone --bare --filter=blob:none "$REMOTE" "$tmp_repo"; then
+    fail "cannot clone the private canonical Engine repository; authenticate with 'gh auth login' or configure a Git HTTPS credential helper"
   fi
-  mv -- "$tmp_repo" "$BARE_REPO"
+  if [[ ! -e "$BARE_REPO" ]]; then
+    if ! mv -T -- "$tmp_repo" "$BARE_REPO"; then
+      [[ -d "$BARE_REPO" ]] || fail "cannot install the canonical bare cache"
+    fi
+  fi
+  rm -rf -- "$tmp_parent"
+  tmp_parent=""
 fi
 
 [[ -d "$BARE_REPO" ]] || fail "governance cache path exists but is not a directory"
@@ -54,6 +79,10 @@ is_bare="$(git --git-dir="$BARE_REPO" rev-parse --is-bare-repository 2>/dev/null
 [[ "$is_bare" == "true" ]] || fail "governance cache is not a bare Git repository; preserve it and inspect manually"
 
 actual_remote="$(git --git-dir="$BARE_REPO" remote get-url origin 2>/dev/null || true)"
+if [[ -z "$CUSTOM_REMOTE" && "$actual_remote" != "$REMOTE" ]]; then
+  git_cmd --git-dir="$BARE_REPO" remote set-url origin "$REMOTE"
+  actual_remote="$REMOTE"
+fi
 case "$actual_remote" in
   git@github.com:iranzakerb-ai/takeoff-virality-engine.git|ssh://git@github.com/iranzakerb-ai/takeoff-virality-engine.git|https://github.com/iranzakerb-ai/takeoff-virality-engine.git)
     ;;
@@ -62,14 +91,13 @@ case "$actual_remote" in
     ;;
 esac
 
-if ! git --git-dir="$BARE_REPO" fetch --no-tags origin \
+if ! git_cmd --git-dir="$BARE_REPO" fetch --no-tags origin \
   "+refs/heads/main:refs/remotes/origin/main"; then
   fail "git fetch of canonical GitHub main failed; cached governance was not treated as current"
 fi
 
 main_sha="$(git --git-dir="$BARE_REPO" rev-parse refs/remotes/origin/main)"
-tmp_review="$(mktemp -d "$CACHE_ROOT/.review.XXXXXX")"
-trap 'rm -rf -- "$tmp_review"' EXIT
+tmp_review="$(mktemp -d "$CACHE_ROOT/.review.XXXXXX")" || fail "cannot create a unique temporary review directory"
 
 if ! git --git-dir="$BARE_REPO" archive --format=tar "$main_sha" \
   "$DOC_PATH" \
@@ -77,7 +105,9 @@ if ! git --git-dir="$BARE_REPO" archive --format=tar "$main_sha" \
   ".github/PULL_REQUEST_TEMPLATE.md" \
   "scripts/validate_takeoff_constitution.py" \
   "scripts/sync_takeoff_governance.sh" \
-  "tests/test_master_constitution_contract.py" | tar -xf - -C "$tmp_review"; then
+  "tests/test_master_constitution_contract.py" \
+  "scripts/publish_takeoff_governance_snapshot.py" \
+  "tests/test_governance_snapshot.py" | tar -xf - -C "$tmp_review"; then
   fail "cannot extract the governance review files from canonical main"
 fi
 
@@ -85,6 +115,8 @@ review_doc="$tmp_review/$DOC_PATH"
 review_script="$tmp_review/scripts/sync_takeoff_governance.sh"
 [[ -s "$review_doc" ]] || fail "canonical constitution is missing or empty"
 [[ -s "$review_script" ]] || fail "canonical sync script is missing or empty"
+review_snapshot_helper="$tmp_review/scripts/publish_takeoff_governance_snapshot.py"
+[[ -s "$review_snapshot_helper" ]] || fail "canonical snapshot publisher is missing or empty"
 
 if ! python3 - "$review_doc" "$MIN_VERSION" <<'PY'
 import re
@@ -118,6 +150,11 @@ fi
 current_script_sha="$(sha256sum "$CURRENT_SCRIPT" | awk '{print $1}')"
 canonical_script_sha="$(sha256sum "$review_script" | awk '{print $1}')"
 [[ "$current_script_sha" == "$canonical_script_sha" ]] || fail "this repository's sync script differs from the canonical Engine main copy; update the repo pointer PR"
+current_snapshot_helper="$CURRENT_ROOT/scripts/publish_takeoff_governance_snapshot.py"
+[[ -f "$current_snapshot_helper" ]] || fail "current repository lacks the canonical snapshot publisher"
+current_snapshot_helper_sha="$(sha256sum "$current_snapshot_helper" | awk '{print $1}')"
+canonical_snapshot_helper_sha="$(sha256sum "$review_snapshot_helper" | awk '{print $1}')"
+[[ "$current_snapshot_helper_sha" == "$canonical_snapshot_helper_sha" ]] || fail "this repository's snapshot publisher differs from canonical Engine main"
 
 if ! (cd "$tmp_review" && python3 scripts/validate_takeoff_constitution.py); then
   fail "canonical Master Constitution validator failed"
@@ -125,12 +162,13 @@ fi
 if ! (cd "$tmp_review" && python3 tests/test_master_constitution_contract.py); then
   fail "canonical Master Constitution contract tests failed or the standard-library contract test failed"
 fi
+if ! (cd "$tmp_review" && python3 tests/test_governance_snapshot.py); then
+  fail "canonical governance snapshot regression tests failed"
+fi
 
 doc_sha256="$(sha256sum "$review_doc" | awk '{print $1}')"
 snapshot_dir="$CACHE_ROOT/snapshots/$main_sha"
-mkdir -p "$snapshot_dir"
-install -m 0600 "$review_doc" "$snapshot_dir/TAKEOFF_MASTER_CONSTITUTION.md"
-meta_tmp="$snapshot_dir/.SOURCE.tmp.$$"
+metadata_file="$tmp_review/SOURCE.txt"
 {
   printf 'REPOSITORY=%s\n' "$REPO_SLUG"
   printf 'REF=refs/heads/main\n'
@@ -140,9 +178,8 @@ meta_tmp="$snapshot_dir/.SOURCE.tmp.$$"
   printf 'SYNC_SCRIPT_SHA256=%s\n' "$canonical_script_sha"
   printf 'VALIDATOR=PASS\n'
   printf 'CONTRACT_TESTS=PASS\n'
-} >"$meta_tmp"
-chmod 0600 "$meta_tmp"
-mv -f -- "$meta_tmp" "$snapshot_dir/SOURCE.txt"
+} >"$metadata_file"
+python3 "$review_snapshot_helper" "$snapshot_dir" "$review_doc" "$metadata_file" "$doc_sha256"
 
 printf 'GOVERNANCE_SYNC=PASS\n'
 printf 'REPOSITORY=%s\n' "$REPO_SLUG"
