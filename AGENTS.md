@@ -6,7 +6,7 @@ PRODUCTION_CHANGE_AUTHORIZATION=NOT GRANTED
 ADOPTION_STATUS=CANDIDATE; OWNER_APPROVAL=APPROVED (v1.0 product locks ratified 2026-10-19; infrastructure amendment CR-20261107-01 approved 2026-11-07; Q-01–Q-07 remain unresolved except the recorded infrastructure/provider decisions). This does NOT authorize bypassing CI/review, unreviewed merges, DNS/traffic cutover, destructive decommission or unscoped Production changes.
 
 Canonical destination: [Engine Master Constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md).
-Review candidate: [Engine PR #78](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/78). Exact current candidate snapshot: [0cef0fa1503e9014692dc4eeed57ddd4d2f783bd](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/0cef0fa1503e9014692dc4eeed57ddd4d2f783bd/docs/TAKEOFF_MASTER_CONSTITUTION.md). This is an unmerged candidate, not `main`; use it only for review until PR #78 is independently reviewed and merged.
+Review candidate: [Engine PR #84](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/84). Exact current candidate snapshot: [1b56ffc993bcefccda0bb85ed57dfc8ed3092485](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/1b56ffc993bcefccda0bb85ed57dfc8ed3092485/docs/TAKEOFF_MASTER_CONSTITUTION.md); SHA-256 `ac3d6014698b2341348bf28d0fb7338f2ec0acc5c6d8d756eb736eec170493d3`. This is an unmerged candidate, not main; use it only for review until PR #84 is independently reviewed and merged.
 
 Applicable product: `MANAGEMENT`. Applicable rule IDs: MGT-001, MGT-002, MGT-003, MGT-004, MGT-005, MGT-006, MGT-007; ENG-006; INF-001, INF-002, INF-003, INF-005; EXE-003. Read the canonical document before product work; no second canonical copy in this repository. Latest explicit owner-approved decisions outrank approved constitution, applicable technical contracts, implementation evidence, historical docs, then AI recommendations (GOV-001).
 
@@ -30,9 +30,9 @@ Before any Android source, signing, release, CI or governance work, run:
 bash scripts/sync_takeoff_governance.sh
 ```
 
-The script fetches canonical Engine `main` into a separate bare Git cache, verifies the owner-approved minimum version and change ID, checks that this repository's script matches canonical Engine `main`, runs the canonical Master Constitution validator and contract tests in a temporary review tree, and writes an immutable SHA-addressed snapshot under `~/.cache/takeoff-governance/`. It does not modify the Android worktree.
+The script fetches canonical Engine `main` into a separate bare Git cache, verifies the owner-approved minimum version and change ID, checks that this repository's script matches canonical Engine `main`, runs the canonical Master Constitution validator and contract tests in a temporary review tree, and writes a read-only, SHA-addressed, hash-verified and tamper-evident snapshot under `~/.cache/takeoff-governance/`. It does not modify the Android worktree.
 
-Read the exact cached master constitution and record its Git commit and SHA-256. If sync returns `GOVERNANCE_SYNC=BLOCKED`, stop governance-sensitive work; do not use a stale cache or unmerged candidate as active authority. PR #78's exact candidate SHA may be used for review only when clearly labelled CANDIDATE.
+Read the exact cached master constitution and record its Git commit and SHA-256. If sync returns `GOVERNANCE_SYNC=BLOCKED`, stop governance-sensitive work; do not use a stale cache or unmerged candidate as active authority. PR #84's exact candidate SHA may be used for review only when clearly labelled CANDIDATE.
 
 # AI / AGENT START HERE
 
