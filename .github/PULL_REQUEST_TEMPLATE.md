@@ -1,6 +1,8 @@
 # TakeOff — bounded, rules-first change request
 
-Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at an exact commit. Current review candidate is Engine PR #78, v1.1.0; OWNER_APPROVAL=APPROVED for v1.0 product locks and infrastructure amendment CR-20261107-01; Q-01–Q-07 remain unresolved except the explicitly recorded infrastructure/provider decisions; GOVERNANCE_MERGE=PENDING; PRODUCTION_CHANGE_AUTHORIZATION=NOT GRANTED.
+Read the [canonical constitution](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/docs/TAKEOFF_MASTER_CONSTITUTION.md) at an exact commit. Current review candidate is Engine PR #84, v1.1.0; OWNER_APPROVAL=APPROVED for v1.0 product locks and infrastructure amendment CR-20261107-01; Q-01–Q-07 remain unresolved except the explicitly recorded infrastructure/provider decisions; GOVERNANCE_MERGE=PENDING; PRODUCTION_CHANGE_AUTHORIZATION=NOT GRANTED.
+
+> **Authorization default:** `PRODUCTION_CHANGE_AUTHORIZATION=NOT GRANTED` is the default for this individual change request. The separately approved D13 authorization is limited to the Customer migration and conditional `app.takeoffads.ir` cutover after every D13 acceptance and rollback gate passes; it does not authorize this governance PR to merge, deploy, or change Production.
 
 **PRODUCT:** MANAGEMENT | CUSTOMER | SHARED_ENGINE | GOVERNANCE
 
