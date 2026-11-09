@@ -1,7 +1,2 @@
-# Ownership routing only; no separate GitHub identity is required for independent process review.
+# Review routing for workflow security configuration.
 .github/workflows/ @iranzakerb-ai
-.github/PULL_REQUEST_TEMPLATE.md @iranzakerb-ai
-AGENTS.md @iranzakerb-ai
-scripts/sync_takeoff_governance.sh @iranzakerb-ai
-scripts/publish_takeoff_governance_snapshot.py @iranzakerb-ai
-scripts/validate_governance_pointer.py @iranzakerb-ai
