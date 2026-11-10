@@ -1,0 +1,65 @@
+name: Android Application Validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-validation-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-debug-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Run Android unit tests and debug build
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Summarize Android unit tests
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+          import sys
+
+          reports = sorted(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          totals = {'tests': 0, 'failures': 0, 'errors': 0, 'skipped': 0}
+          for report in reports:
+              root = ElementTree.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(root.attrib.get(key, 0))
+          print(f"ANDROID_UNIT_TESTS={totals['tests']} FAILURES={totals['failures']} ERRORS={totals['errors']} SKIPPED={totals['skipped']}")
+          if not reports or totals['tests'] == 0:
+              print('No Android unit test cases were reported.', file=sys.stderr)
+              sys.exit(1)
+          if totals['failures'] or totals['errors']:
+              sys.exit(1)
+          PY
+      - name: Upload Android unit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unit-test-results
+          path: app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,26 +1,7 @@
-# TakeOff Insights — Android
+# TAKEOFF Insights — Android Management Companion
 
-> **Start here:** read [`PRODUCT_CONSTITUTION.md`](PRODUCT_CONSTITUTION.md) before changing this product. AI agents must also read [`AGENTS.md`](AGENTS.md).
+This repository contains the Android companion for TAKEOFF Management. The proposed Product Constitution is the [Engine candidate at `f1a13e7`](https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/f1a13e7cd7c8a2bce060d2b3b5fdca127ca9040e/docs/TAKEOFF_MASTER_CONSTITUTION.md) ([Engine PR #84](https://github.com/iranzakerb-ai/takeoff-virality-engine/pull/84)); it is not on Engine `main` or adopted yet.
 
-TakeOff Insights is intentionally centered on **two learning loops only**:
+The Management experience supports the approved Owner Outcome Capture and Viral Reel Learning journeys. The app is Persian-first, and it must preserve actual media sharing, processing, result retrieval, and History behavior present in the implementation. Do not infer runtime support from this description.
 
-1. **Owner Outcome Capture** — capture authorized Instagram Owner Insights for the agency's own pages and client pages (Retention, Watch Time, Share/Save and other available outcome evidence) as a practical substitute when Meta API access is unavailable, then connect those outcomes back to generated scenarios so the system learns what actually worked.
-2. **Viral Reel Learning** — manually Share a high-performing/million-view public Instagram Reel/post to TakeOff; the server retrieves and analyzes the media, speech/dialogue, hook, scenario, CTA, visuals, editing, audio and behavioral mechanisms, then stores evidence-backed reusable learning for future original scenario generation.
-
-The product owner's ambition is to drive generated scenarios toward extremely high and ideally million-view performance. That ambition is a **north star, not a guaranteed probability**. The system must not fabricate evidence or promise reach.
-
-## UX rule
-
-The primary app experience must remain simple, Persian-first and glassmorphism-based, with exactly two obvious primary actions matching the two missions above. Backend/provider/queue details are secondary diagnostics.
-
-## Repository role
-
-This is the public, secret-free Android build mirror for TakeOff Insights. Backend code, credentials, private Owner Insight data and production secrets are intentionally excluded.
-
-The release pipeline validates package/version, live backend health, unit tests, lint, APK integrity/signature, manifest contracts, mission-lock source checks and secret scans before publishing an artifact.
-
-## Current verified APK
-
-[TakeOff Insights 0.18.0 final APK](https://blkbxodqgwgivyipahxf.supabase.co/storage/v1/object/public/takeoff-releases/TakeOff-Insights-0.18.0-final.apk)
-
-SHA-256: `c1f876383548bc05d44094bca92b28f09120cb81f3da868b76bd12061639a76e`
+The release workflow continues to validate Android build, version metadata, tests, lint, APK integrity/signature, manifest contracts, and secret scanning. Credentials and private Owner Insight data do not belong in this repository.
