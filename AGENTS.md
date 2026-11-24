@@ -7,6 +7,13 @@ That constitution is the product owner's authoritative scope lock. The Android a
 1. capture authorized Owner Insights / post-publication outcomes for agency and client pages so scenario generation can learn from real retention, watch time, shares, saves and related evidence when Meta API access is unavailable;
 2. receive manually shared high-performing Instagram Reels/posts and send them through the server-side viral-learning pipeline so TakeOff can understand hooks, dialogue, scenario structure, CTA, visuals, editing, audio and reusable behavioral mechanisms.
 
+## Shared infrastructure governance — mandatory
+
+Before any infrastructure, deployment, CI/CD, database, API endpoint, networking or release-architecture task, read and follow the canonical Engine governance file:
+`https://github.com/iranzakerb-ai/takeoff-virality-engine/blob/main/AGENT_LOCKS.md`.
+
+Current owner-locked target: VPS-based Production with independent PostgreSQL. Local Windows/Hyper-V is optional for development/testing, never a mandatory Production host. Vercel and Supabase are not approved runtime dependencies; Cloudflare is prohibited and must not be accessed. Production is the only deployable environment: no Staging or Preview. This policy does not claim that a VPS has already been provisioned or authorize a deployment by itself.
+
 ## Mandatory agent behavior
 
 - Do not turn the app into a generic analytics dashboard or engineering console.
