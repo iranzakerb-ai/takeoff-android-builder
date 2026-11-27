@@ -14,6 +14,10 @@ Before any infrastructure, deployment, CI/CD, database, API endpoint, networking
 
 Current owner-locked target: VPS-based Production with independent PostgreSQL. Local Windows/Hyper-V is optional for development/testing, never a mandatory Production host. Vercel and Supabase are not approved runtime dependencies; Cloudflare is prohibited and must not be accessed. Production is the only deployable environment: no Staging or Preview. This policy does not claim that a VPS has already been provisioned or authorize a deployment by itself.
 
+## Absolute provider prohibition — mandatory
+
+Apify is completely prohibited across all TAKEOFF repositories and Android workflows. Never install, import, call, configure, test against, or use Apify as an optional fallback or data provider. Never add Apify tokens, Actor IDs or secrets to Android, Engine, CI/CD or deployment configuration. Do not substitute another paid scraper without explicit owner approval. Follow the canonical Engine `docs/APIFY_PROHIBITION.md` and `AGENT_LOCKS.md`; any active dependency is a P0 release blocker.
+
 ## Mandatory agent behavior
 
 - Do not turn the app into a generic analytics dashboard or engineering console.
